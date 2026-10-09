@@ -6,5 +6,5 @@ Collection of client-side motion design and video editing tools for the OpenFish
 
 ## License
 
-Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0).
+Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0).
 See [LICENSE](LICENSE) for details.
