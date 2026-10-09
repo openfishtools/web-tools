@@ -1,0 +1,16 @@
+{
+  "name": "@openfishtools/web-tools",
+  "version": "1.0.0",
+  "description": "Unified client-side motion design and video editing tools suite for OpenFishTools",
+  "main": "dist/web-tools.bundle.js",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "node -c dist/web-tools.bundle.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openfishtools/web-tools.git"
+  },
+  "author": "cutefishaep",
+  "license": "MIT"
+}

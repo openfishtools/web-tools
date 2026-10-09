@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "buildDate": "2026-10-09T15:09:40.778Z",
+  "modules": 20,
+  "tools": [
+    "tool-tiktok-patcher",
+    "tool-video-compressor",
+    "tool-audio-extractor",
+    "tool-image-sequence",
+    "tool-5mb-generator",
+    "tool-ae-am-beatmark",
+    "tool-upscale-enhancer",
+    "tool-video-interpolation",
+    "tool-remove-background",
+    "tool-tiktok-stats",
+    "tool-tiktok-downloader"
+  ]
+}
