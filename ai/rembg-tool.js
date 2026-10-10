@@ -1774,6 +1774,7 @@
     const toolDefinition = {
         id: 'tool-remove-background',
         _id: 'tool-remove-background',
+        version: '1.5.0',
         title: 'Remove Background',
         titleKey: 'tool_rembg_title',
         desc: 'AI Matting',

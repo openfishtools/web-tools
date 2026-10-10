@@ -1597,6 +1597,7 @@
     const toolDefinition = {
         id: 'tool-tiktok-patcher',
         _id: 'tool-tiktok-patcher',
+        version: '3.7.0',
         title: 'Quality Method',
         desc: 'TikTok HQ Upload',
         icon: 'high_quality',

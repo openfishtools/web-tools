@@ -315,6 +315,7 @@
     const toolDefinition = {
         id: 'tool-ae-am-beatmark',
         _id: 'tool-ae-am-beatmark',
+        version: '1.0.0',
         title: 'AE to AM',
         titleKey: 'tool_ae_am_title',
         desc: 'Beatmark Converter',

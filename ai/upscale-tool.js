@@ -1872,6 +1872,7 @@
     const toolDefinition = {
         id: 'tool-upscale-enhancer',
         _id: 'tool-upscale-enhancer',
+        version: '1.3.0',
         title: 'Qualitelio Enhancer',
         titleKey: 'tool_upscale_title',
         desc: 'Media Upscaler',

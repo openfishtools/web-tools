@@ -465,6 +465,7 @@
     const toolDefinition = {
         id: 'tool-5mb-generator',
         _id: 'tool-5mb-generator',
+        version: '1.0.0',
         title: '5MB XML Generator',
         titleKey: 'tool_fivemb_title',
         desc: 'Alight Motion',

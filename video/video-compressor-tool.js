@@ -764,6 +764,7 @@
     const toolDefinition = {
         id: 'tool-video-compressor',
         _id: 'tool-video-compressor',
+        version: '2.2.0',
         title: 'Video Compressor',
         desc: 'Compress video to custom quality and file sizes',
         icon: 'compress',

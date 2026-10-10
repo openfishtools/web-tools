@@ -264,6 +264,7 @@
     const toolDefinition = {
         id: 'tool-audio-extractor',
         _id: 'tool-audio-extractor',
+        version: '1.0.0',
         title: 'Audio Extractor',
         titleKey: 'tool_audio_extractor_title',
         desc: 'Video to Audio',

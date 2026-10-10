@@ -505,6 +505,7 @@
     const toolDefinition = {
         id: 'tool-video-interpolation',
         _id: 'tool-video-interpolation',
+        version: '1.0.3',
         title: 'Video Interpolation',
         titleKey: 'tool_interp_title',
         desc: 'FPS Upscaler',

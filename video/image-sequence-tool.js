@@ -422,6 +422,7 @@
     const toolDefinition = {
         id: 'tool-image-sequence',
         _id: 'tool-image-sequence',
+        version: '1.1.0',
         title: 'Image Sequence to Video',
         titleKey: 'tool_seq_title',
         desc: 'AM Zip Exporter',
