@@ -1,5 +1,8 @@
 # OpenFishTools Web Tools
 
+[![Version: 1.0.0](https://img.shields.io/badge/version-1.0.0-9DFF00.svg)](README.md)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](LICENSE)
+
 A collection of pure client-side video processing, AI vision, media analytics, and animation conversion libraries for modern web browsers.
 
 All tools in this repository follow a **Universal, Headless, Schema-Driven** architecture:
