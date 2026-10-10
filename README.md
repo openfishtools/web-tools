@@ -52,14 +52,15 @@ Struktur anatomi tool:
                 required: true
             },
             {
+                id: 'preset',
                 name: 'preset',
                 type: 'select',
-                label: 'Target Size / Resolution',
+                label: 'Preset',
                 default: 'medium',
                 options: [
-                    { label: 'Ultra Small (Discord < 10MB)', value: 'small' },
-                    { label: 'Balanced (720p)', value: 'medium' },
-                    { label: 'High Quality (1080p)', value: 'high' }
+                    { label: 'Small', value: 'small' },
+                    { label: 'Balanced', value: 'medium' },
+                    { label: 'Quality', value: 'high' }
                 ]
             }
         ]

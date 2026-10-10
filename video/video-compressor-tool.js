@@ -817,23 +817,25 @@
                 },
                 {
                     id: 'preset',
+                    name: 'preset',
                     type: 'segmented',
-                    label: 'Compression Preset',
+                    label: 'Preset',
                     default: 'medium',
                     options: [
-                        { value: 'fast', label: 'Fast (H.264 Veryfast)' },
-                        { value: 'medium', label: 'Balanced (H.265 Ultrafast)' },
-                        { value: 'slow', label: 'Quality (H.265 Superfast)' }
+                        { value: 'fast', label: 'Fast' },
+                        { value: 'medium', label: 'Balanced' },
+                        { value: 'slow', label: 'Quality' }
                     ]
                 },
                 {
                     id: 'threadMode',
+                    name: 'threadMode',
                     type: 'segmented',
-                    label: 'Threading Engine',
+                    label: 'Thread',
                     default: 'multi',
                     options: [
-                        { value: 'multi', label: 'Multi-Thread (Fast)' },
-                        { value: 'single', label: 'Single-Thread (Safe)' }
+                        { value: 'multi', label: 'Multi-Thread' },
+                        { value: 'single', label: 'Single-Thread' }
                     ]
                 }
             ]

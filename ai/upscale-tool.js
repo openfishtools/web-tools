@@ -1910,17 +1910,19 @@
         schema: {
             inputs: [
                 {
+                    id: 'file',
                     name: 'file',
                     type: 'file',
-                    label: 'Media File (Image or Video)',
+                    label: 'Media File',
                     labelKey: 'tool_upscale_drop',
                     accept: 'image/*,video/*',
                     required: true
                 },
                 {
+                    id: 'preset',
                     name: 'preset',
                     type: 'select',
-                    label: 'Enhance Preset',
+                    label: 'Preset',
                     default: 'cartoonist',
                     options: [
                         { label: 'Cartoonist', value: 'cartoonist' },
@@ -1928,10 +1930,11 @@
                         { label: 'Human Detail', value: 'humanDetail' },
                         { label: 'Smooth Face', value: 'smoothFace' },
                         { label: 'IDGAF', value: 'idgaf' },
-                        { label: 'No Filter', value: 'none' }
+                        { label: 'None', value: 'none' }
                     ]
                 },
                 {
+                    id: 'timing',
                     name: 'timing',
                     type: 'segmented',
                     label: 'Order',
@@ -1942,9 +1945,10 @@
                     ]
                 },
                 {
+                    id: 'normalise',
                     name: 'normalise',
                     type: 'toggle',
-                    label: 'Crop to 9:16 (Center)',
+                    label: 'Crop 9:16',
                     default: false
                 }
             ]

@@ -1813,25 +1813,28 @@
         schema: {
             inputs: [
                 {
+                    id: 'file',
                     name: 'file',
                     type: 'file',
-                    label: 'Media File (Image or Video)',
+                    label: 'Media File',
                     labelKey: 'tool_rembg_drop',
                     accept: 'image/*,video/*',
                     required: true
                 },
                 {
+                    id: 'model',
                     name: 'model',
                     type: 'select',
-                    label: 'AI Model',
+                    label: 'Model',
                     default: 'selfie_segmenter',
                     options: [
-                        { label: 'MediaPipe Selfie (~1MB)', value: 'selfie_segmenter' },
-                        { label: 'RobustVideoMatting (~15MB)', value: 'rvm_mobilenetv3' },
-                        { label: 'MODNet (~25MB)', value: 'modnet' }
+                        { label: 'MediaPipe', value: 'selfie_segmenter' },
+                        { label: 'RVM', value: 'rvm_mobilenetv3' },
+                        { label: 'MODNet', value: 'modnet' }
                     ]
                 },
                 {
+                    id: 'bg',
                     name: 'bg',
                     type: 'segmented',
                     label: 'Background',
@@ -1843,13 +1846,14 @@
                     ]
                 },
                 {
+                    id: 'device',
                     name: 'device',
                     type: 'segmented',
                     label: 'Device',
                     default: 'gpu',
                     options: [
-                        { label: 'GPU (WebGPU)', value: 'gpu' },
-                        { label: 'CPU (WASM)', value: 'cpu' }
+                        { label: 'GPU', value: 'gpu' },
+                        { label: 'CPU', value: 'cpu' }
                     ]
                 }
             ]

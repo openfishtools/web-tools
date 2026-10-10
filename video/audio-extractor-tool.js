@@ -303,6 +303,7 @@
             inputs: [
                 {
                     id: 'videoFile',
+                    name: 'videoFile',
                     type: 'file',
                     label: 'Video File',
                     labelKey: 'tool_audio_extractor_drop',

@@ -529,21 +529,23 @@
         schema: {
             inputs: [
                 {
+                    id: 'xmlFile',
                     name: 'xmlFile',
                     type: 'file',
-                    label: 'Alight Motion XML (.xml)',
+                    label: 'Alight Motion XML',
                     labelKey: 'tool_fivemb_drop',
                     accept: '.xml',
                     required: true
                 },
                 {
+                    id: 'replaceMode',
                     name: 'replaceMode',
                     type: 'select',
                     label: 'Replace Mode',
                     default: 'all',
                     options: [
-                        { label: 'All Media (Videos, Photos, Audios)', value: 'all' },
-                        { label: 'Videos & Photos Only', value: 'video_photo' },
+                        { label: 'All Media', value: 'all' },
+                        { label: 'Videos & Photos', value: 'video_photo' },
                         { label: 'Videos Only', value: 'video_only' }
                     ]
                 }

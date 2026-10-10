@@ -1639,14 +1639,14 @@
                     id: 'method',
                     name: 'method',
                     type: 'segmented',
-                    label: 'Quality Method',
+                    label: 'Method',
                     labelKey: 'patcher_cat_quality_method',
                     default: 'tbt',
                     options: [
-                        { label: 'FISH (v2)', value: 'tbt' },
+                        { label: 'FISH', value: 'tbt' },
                         { label: 'Binary', value: 'binary' },
                         { label: 'StreamShield', value: 'streamshield' },
-                        { label: 'F R Y', value: 'v3' },
+                        { label: 'FRY', value: 'v3' },
                         { label: 'FPS 60', value: 'fps' },
                         { label: 'WMV', value: 'v1' }
                     ]
@@ -1655,13 +1655,13 @@
                     id: 'compress',
                     name: 'compress',
                     type: 'segmented',
-                    label: 'Resolution / Compress',
+                    label: 'Compress',
                     labelKey: 'patcher_compress_title',
                     default: 'off',
                     options: [
-                        { label: 'Original (Off)', value: 'off' },
-                        { label: '720p HD', value: '720p' },
-                        { label: '1080p Full HD', value: '1080p' }
+                        { label: 'OFF', value: 'off' },
+                        { label: '720', value: '720p' },
+                        { label: '1080', value: '1080p' }
                     ]
                 }
             ]

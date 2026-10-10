@@ -649,11 +649,12 @@
         schema: {
             inputs: [
                 {
+                    id: 'url',
                     name: 'url',
                     type: 'url',
-                    label: 'TikTok Video URL',
+                    label: 'TikTok URL',
                     labelKey: 'tool_stats_url',
-                    placeholder: 'https://www.tiktok.com/... or https://tt.site/...',
+                    placeholder: 'https://www.tiktok.com/...',
                     required: true,
                     validate: isTikTokUrl
                 }

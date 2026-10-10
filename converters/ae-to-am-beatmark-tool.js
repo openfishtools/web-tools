@@ -349,6 +349,7 @@
             inputs: [
                 {
                     id: 'file',
+                    name: 'file',
                     type: 'file',
                     label: 'After Effects XML',
                     labelKey: 'tool_ae_am_drop',
@@ -358,6 +359,7 @@
                 },
                 {
                     id: 'title',
+                    name: 'title',
                     type: 'text',
                     label: 'Project Title',
                     labelKey: 'tool_ae_am_project_title',
@@ -366,6 +368,7 @@
                 },
                 {
                     id: 'fps',
+                    name: 'fps',
                     type: 'select',
                     label: 'Frame Rate',
                     default: '30',

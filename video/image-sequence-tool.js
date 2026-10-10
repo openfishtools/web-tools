@@ -468,6 +468,7 @@
         schema: {
             inputs: [
                 {
+                    id: 'zipFile',
                     name: 'zipFile',
                     type: 'file',
                     label: 'ZIP Archive',
@@ -476,27 +477,30 @@
                     required: true
                 },
                 {
+                    id: 'fps',
                     name: 'fps',
                     type: 'number',
-                    label: 'Frame Rate (FPS)',
+                    label: 'FPS',
                     labelKey: 'tool_seq_fps',
                     min: 1,
                     max: 240,
                     default: 30
                 },
                 {
+                    id: 'bitrate',
                     name: 'bitrate',
                     type: 'number',
-                    label: 'Bitrate (Mbps)',
+                    label: 'Bitrate',
                     labelKey: 'tool_seq_bitrate',
                     min: 1,
                     max: 50,
                     default: 12
                 },
                 {
+                    id: 'audioFile',
                     name: 'audioFile',
                     type: 'file',
-                    label: 'Audio Track (Optional)',
+                    label: 'Audio Track',
                     labelKey: 'tool_seq_audio_drop',
                     accept: 'audio/*,video/*',
                     required: false

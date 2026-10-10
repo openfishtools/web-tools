@@ -546,6 +546,7 @@
         schema: {
             inputs: [
                 {
+                    id: 'videoFile',
                     name: 'videoFile',
                     type: 'file',
                     label: 'Video File',
@@ -554,9 +555,10 @@
                     required: true
                 },
                 {
+                    id: 'multiplier',
                     name: 'multiplier',
                     type: 'segmented',
-                    label: 'FPS Multiplier',
+                    label: 'Multiplier',
                     labelKey: 'interp_multiplier_title',
                     default: 2,
                     options: [
