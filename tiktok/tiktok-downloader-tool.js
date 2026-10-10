@@ -212,57 +212,36 @@
         hideDropZone: true,
 
         initModal: function(ctx) {
-            const { optContainer, processBtn, processLabel } = ctx;
+            const { optContainer, processBtn, processLabel, ui } = ctx;
             if (!optContainer) return;
 
             if (processLabel) processLabel.textContent = t('tool_downloader_btn') || 'Download Video';
 
-            optContainer.innerHTML = `
-                <div id="tiktok-dl-preview" class="stats-results-container hidden">
-                    <div class="stats-preview-container">
-                        <div class="stats-video-cover-wrapper">
-                            <img id="tiktok-dl-cover" src="" alt="Cover" class="stats-video-cover">
+            const toolUI = ui || (window.ToolUI ? new window.ToolUI(optContainer) : null);
+            if (toolUI) {
+                toolUI.clear();
+                toolUI.addCustomArea({
+                    html: `
+                        <div id="tiktok-dl-preview" class="stats-results-container hidden">
+                            <div class="stats-preview-container">
+                                <div class="stats-video-cover-wrapper">
+                                    <img id="tiktok-dl-cover" src="" alt="Cover" class="stats-video-cover">
+                                </div>
+                                <div class="stats-preview-info">
+                                    <div id="tiktok-dl-author" class="stats-creator-name">Creator</div>
+                                    <div id="tiktok-dl-title" class="stats-caption">Video title</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="stats-preview-info">
-                            <div id="tiktok-dl-author" class="stats-creator-name">Creator</div>
-                            <div id="tiktok-dl-title" class="stats-caption">Video title</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tool-input-group">
-                    <label class="tool-input-label" for="tool-tiktok-dl-input">${t('tool_downloader_url')}</label>
-                    <div class="tool-input-wrapper">
-                        <span class="material-symbols-rounded tool-input-icon">link</span>
-                        <input type="text" id="tool-tiktok-dl-input" class="tool-input-text" placeholder="https://www.tiktok.com/... or https://tt.site/..." autocomplete="off">
-                        <button type="button" class="tool-input-clear-btn hidden" id="tool-tiktok-dl-clear" title="Clear">
-                            <span class="material-symbols-rounded">close</span>
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            const inputUrl = document.getElementById('tool-tiktok-dl-input');
-            const clearBtn = document.getElementById('tool-tiktok-dl-clear');
-
-            if (inputUrl && clearBtn) {
-                inputUrl.addEventListener('input', () => {
-                    if (inputUrl.value.trim().length > 0) {
-                        clearBtn.classList.remove('hidden');
-                    } else {
-                        clearBtn.classList.add('hidden');
-                    }
+                    `
                 });
 
-                clearBtn.addEventListener('click', () => {
-                    inputUrl.value = '';
-                    clearBtn.classList.add('hidden');
-                    inputUrl.focus();
-                });
-
-                inputUrl.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
+                toolUI.addInput({
+                    id: 'tool-tiktok-dl-input',
+                    label: t('tool_downloader_url') || 'TikTok Video URL',
+                    icon: 'link',
+                    placeholder: 'https://www.tiktok.com/... or https://tt.site/...',
+                    onEnter: () => {
                         if (processBtn) processBtn.click();
                     }
                 });
