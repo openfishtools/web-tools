@@ -27,6 +27,7 @@
     let lastAnalysedUrl = '';
     let lastAnalysedTime = 0;
     let lastMetadata = null;
+    let activeContext = null;
     const cacheMap = new Map();
 
     function t(key) {
@@ -572,6 +573,45 @@
             displayMethod(videoMeta && videoMeta.comment ? videoMeta.comment.trim() : '');
             setButtonState('ready', t('tool_stats_btn') || 'Analyse');
 
+            if (activeContext) {
+                let finalBitrateStr = '—';
+                if (finalSize && finalDuration) {
+                    const bitrateKbps = (finalSize * 8) / (finalDuration * 1000);
+                    if (bitrateKbps >= 1000) {
+                        finalBitrateStr = `${(bitrateKbps / 1000).toFixed(2)} Mbps`;
+                    } else {
+                        finalBitrateStr = `${Math.round(bitrateKbps)} kbps`;
+                    }
+                }
+                const resW = (videoMeta && videoMeta.width) || metadata.w || '—';
+                const resH = (videoMeta && videoMeta.height) || metadata.h || '—';
+
+                return {
+                    type: 'data',
+                    data: {
+                        preview: {
+                            cover: metadata.cover || '',
+                            author: `${metadata.author_nickname || 'Creator'} (@${metadata.author_unique_id || ''})`,
+                            title: metadata.title || '—'
+                        },
+                        items: [
+                            { label: t('stats_resolution') || 'Resolution', value: `${resW} x ${resH}` },
+                            { label: t('stats_fps') || 'FPS', value: (videoMeta && videoMeta.fps) ? `${videoMeta.fps} fps` : '—' },
+                            { label: t('stats_bitrate') || 'Bitrate', value: finalBitrateStr },
+                            { label: t('stats_duration') || 'Duration', value: finalDuration ? `${finalDuration}s` : '—' },
+                            { label: t('stats_size') || 'Size', value: finalSize ? `${(finalSize / (1024 * 1024)).toFixed(2)} MB` : '—' },
+                            { label: t('stats_method') || 'Method', value: (videoMeta && videoMeta.comment ? videoMeta.comment.trim() : '—') },
+                            { label: t('stats_views') || 'Views', value: formatNumber(playCount) },
+                            { label: t('stats_likes') || 'Likes', value: formatNumber(diggCount) },
+                            { label: t('stats_comments') || 'Comments', value: formatNumber(commentCount) },
+                            { label: t('stats_shares') || 'Shares', value: formatNumber(shareCount) },
+                            { label: t('stats_saves') || 'Saves', value: formatNumber(collectCount) },
+                            { label: t('stats_engagement') || 'Engagement', value: (playCount > 0 ? `${(((diggCount + commentCount + shareCount + collectCount) / playCount) * 100).toFixed(2)}%` : '—') }
+                        ]
+                    }
+                };
+            }
+
         } catch (err) {
             console.error(err);
             if (resultsContainer) {
@@ -587,6 +627,7 @@
             if (typeof window.showToast === 'function') {
                 window.showToast(failMsg);
             }
+            if (activeContext) throw err;
         } finally {
             isRunning = false;
         }
@@ -604,6 +645,34 @@
         inputType: 'url',
         hideDropZone: true,
         hideProgress: true,
+
+        schema: {
+            inputs: [
+                {
+                    name: 'url',
+                    type: 'url',
+                    label: 'TikTok Video URL',
+                    labelKey: 'tool_stats_url',
+                    placeholder: 'https://www.tiktok.com/... or https://tt.site/...',
+                    required: true,
+                    validate: isTikTokUrl
+                }
+            ]
+        },
+
+        run: async function(inputs, context) {
+            activeContext = context;
+            try {
+                let url = (inputs.url || '').trim();
+                if (!url) throw new Error('TikTok URL is required');
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                return await analyseTikTokVideo(url);
+            } finally {
+                activeContext = null;
+            }
+        },
 
         initModal: function(ctx) {
             const { optContainer, processBtn, processLabel } = ctx;

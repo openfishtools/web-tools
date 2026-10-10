@@ -19,6 +19,8 @@
     let customColor = '#0842a0';
     let isImageMode = true;
     let isGeneratingPreview = false;
+    let activeContext = null;
+    let lastResultOutput = null;
 
     function isImageFile(file) {
         if (!file) return false;
@@ -114,6 +116,9 @@
     }
 
     function setProgress(percent, text) {
+        if (activeContext && typeof activeContext.onProgress === 'function') {
+            activeContext.onProgress(percent, text);
+        }
         const progressSec = document.getElementById('tool-progress-section');
         const progressFill = document.getElementById('tool-progress-fill');
         const progressStatus = document.getElementById('tool-progress-status');
@@ -135,6 +140,9 @@
     }
 
     function log(msg) {
+        if (activeContext && typeof activeContext.onLog === 'function') {
+            activeContext.onLog(msg);
+        }
         const logsEl = document.getElementById('rembg-logs');
         if (logsEl) {
             logsEl.textContent += (logsEl.textContent ? '\n' : '') + msg;
@@ -273,6 +281,10 @@
     }
 
     function triggerDownload(blob, filename) {
+        lastResultOutput = { blob, filename };
+        if (activeContext) {
+            return;
+        }
         const outUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = outUrl;
@@ -1765,6 +1777,7 @@
             if (window.ToolProgressManager) {
                 window.ToolProgressManager.clear('tool-remove-background');
             }
+            if (activeContext) throw err;
         } finally {
             isProcessing = false;
             setControlsDisabled(false);
@@ -1797,6 +1810,74 @@
             { label: 'DEVICE', value: 'CPU / GPU Selectable' },
             { label: 'PROCESSING', value: '100% Local Inference' }
         ],
+        schema: {
+            inputs: [
+                {
+                    name: 'file',
+                    type: 'file',
+                    label: 'Media File (Image or Video)',
+                    labelKey: 'tool_rembg_drop',
+                    accept: 'image/*,video/*',
+                    required: true
+                },
+                {
+                    name: 'model',
+                    type: 'select',
+                    label: 'AI Model',
+                    default: 'selfie_segmenter',
+                    options: [
+                        { label: 'MediaPipe Selfie (~1MB)', value: 'selfie_segmenter' },
+                        { label: 'RobustVideoMatting (~15MB)', value: 'rvm_mobilenetv3' },
+                        { label: 'MODNet (~25MB)', value: 'modnet' }
+                    ]
+                },
+                {
+                    name: 'bg',
+                    type: 'segmented',
+                    label: 'Background',
+                    default: 'transparent',
+                    options: [
+                        { label: 'Transparent', value: 'transparent' },
+                        { label: 'Green Screen', value: 'green' },
+                        { label: 'Blur', value: 'blur' }
+                    ]
+                },
+                {
+                    name: 'device',
+                    type: 'segmented',
+                    label: 'Device',
+                    default: 'gpu',
+                    options: [
+                        { label: 'GPU (WebGPU)', value: 'gpu' },
+                        { label: 'CPU (WASM)', value: 'cpu' }
+                    ]
+                }
+            ]
+        },
+        run: async function(inputs, context) {
+            activeContext = context;
+            lastResultOutput = null;
+            try {
+                const file = inputs.file || inputs.videoFile;
+                if (!file) throw new Error('File is required');
+                selectedFile = file;
+                selectedModel = inputs.model || 'selfie_segmenter';
+                selectedBg = inputs.bg || 'transparent';
+                selectedDevice = inputs.device || 'gpu';
+                isImageMode = isImageFile(file);
+                await removeBackground(file);
+                if (lastResultOutput) {
+                    return {
+                        type: 'file',
+                        data: lastResultOutput.blob,
+                        filename: lastResultOutput.filename
+                    };
+                }
+                throw new Error('Background removal failed to produce output.');
+            } finally {
+                activeContext = null;
+            }
+        },
         initModal: function(ctx) {
             const { optContainer } = ctx;
             if (optContainer) optContainer.innerHTML = '';

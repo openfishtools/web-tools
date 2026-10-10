@@ -206,13 +206,18 @@
         const blob = new Blob([finalBytes], { type: mimeType });
         const url = URL.createObjectURL(blob);
 
-        // Auto trigger download
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        window._lastFinalizedPatcherResult = { url, filename, blob };
+
+        // Auto trigger download if not in headless context
+        const isHeadless = !!(window._tktk && window._tktk.activeContext);
+        if (!isHeadless) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
 
         // Update modal download button
         const dlBtn = document.getElementById('tool-download-btn');

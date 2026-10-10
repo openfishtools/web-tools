@@ -112,14 +112,11 @@
         }
     }
 
-    function selectComposition(index) {
-        const comp = foundCompositions.find((c) => c.id === index);
-        if (!comp) return;
-
+    function extractBeatsFromComp(compElement) {
         let timebase = 30720;
         let detectedFps = 30;
 
-        const cdtaNode = comp.element.querySelector('cdta');
+        const cdtaNode = compElement.querySelector('cdta');
         if (cdtaNode) {
             const bdata = cdtaNode.getAttribute('bdata');
             if (bdata && bdata.length >= 24) {
@@ -132,8 +129,8 @@
             }
         }
 
-        parsedBeats = [];
-        const ldatNodes = comp.element.querySelectorAll('mrst list ldat');
+        const beats = [];
+        const ldatNodes = compElement.querySelectorAll('mrst list ldat');
 
         ldatNodes.forEach((ldat) => {
             const bdata = ldat.getAttribute('bdata');
@@ -145,13 +142,22 @@
                     const val = parseInt(hexTime, 16);
                     if (!isNaN(val)) {
                         const ms = Math.round((val / timebase) * 1000);
-                        if (!parsedBeats.includes(ms)) parsedBeats.push(ms);
+                        if (!beats.includes(ms)) beats.push(ms);
                     }
                 }
             }
         });
 
-        parsedBeats.sort((a, b) => a - b);
+        beats.sort((a, b) => a - b);
+        return { beats, detectedFps, timebase };
+    }
+
+    function selectComposition(index) {
+        const comp = foundCompositions.find((c) => c.id === index);
+        if (!comp) return;
+
+        const { beats, detectedFps, timebase } = extractBeatsFromComp(comp.element);
+        parsedBeats = beats;
 
         const compTitle = document.getElementById('ae-am-title-input');
         const compFps = document.getElementById('ae-am-fps-input');
@@ -247,6 +253,30 @@
         });
     }
 
+    function generateAmXml({ title, w, h, fps, duration, parsedBeats }) {
+        let xmlStr = `<?xml version='1.0' encoding='UTF-8' ?>\n`;
+        xmlStr += `<scene title="${escapeXml(title)}" width="${w}" height="${h}" exportWidth="${w}" exportHeight="${h}" precompose="dynamicResolution" bgcolor="#ff000000" totalTime="${duration}" fps="${fps}" modifiedTime="${Date.now()}" amver="1028425" ffver="106" am="com.alightcreative.motion/5.0.273.1028425" amplatform="android" retime="freeze" retimeAdaptFPS="false">\n`;
+
+        parsedBeats.forEach((ms) => {
+            xmlStr += `  <bookmark t="${ms}" />\n`;
+        });
+
+        const centerX = (w / 2).toFixed(6);
+        const centerY = (h / 2).toFixed(6);
+        const randomId = Math.floor(Math.random() * 900000000) + 100000000;
+
+        xmlStr += `  <shape id="${randomId}" label="placeholder" startTime="0" endTime="${duration}" fillType="color" mediaFillMode="fill" s=".rect">\n`;
+        xmlStr += `    <transform>\n`;
+        xmlStr += `      <location value="${centerX},${centerY},0.000000" />\n`;
+        xmlStr += `      <scale value="5.400000,5.400000" />\n`;
+        xmlStr += `    </transform>\n`;
+        xmlStr += `    <fillColor value="#ff5f3a8e" />\n`;
+        xmlStr += `    <property name="size" type="vec2" value="100.000000,100.000000" />\n`;
+        xmlStr += `  </shape>\n`;
+        xmlStr += `</scene>`;
+        return xmlStr;
+    }
+
     function convertAeToAmXml() {
         if (!selectedFile || foundCompositions.length === 0) return;
 
@@ -270,27 +300,7 @@
         setButtonState('processing', "Generating Alight Motion XML...");
 
         try {
-            let xmlStr = `<?xml version='1.0' encoding='UTF-8' ?>\n`;
-            xmlStr += `<scene title="${escapeXml(title)}" width="${w}" height="${h}" exportWidth="${w}" exportHeight="${h}" precompose="dynamicResolution" bgcolor="#ff000000" totalTime="${duration}" fps="${fps}" modifiedTime="${Date.now()}" amver="1028425" ffver="106" am="com.alightcreative.motion/5.0.273.1028425" amplatform="android" retime="freeze" retimeAdaptFPS="false">\n`;
-
-            parsedBeats.forEach((ms) => {
-                xmlStr += `  <bookmark t="${ms}" />\n`;
-            });
-
-            const centerX = (w / 2).toFixed(6);
-            const centerY = (h / 2).toFixed(6);
-            const randomId = Math.floor(Math.random() * 900000000) + 100000000;
-
-            xmlStr += `  <shape id="${randomId}" label="placeholder" startTime="0" endTime="${duration}" fillType="color" mediaFillMode="fill" s=".rect">\n`;
-            xmlStr += `    <transform>\n`;
-            xmlStr += `      <location value="${centerX},${centerY},0.000000" />\n`;
-            xmlStr += `      <scale value="5.400000,5.400000" />\n`;
-            xmlStr += `    </transform>\n`;
-            xmlStr += `    <fillColor value="#ff5f3a8e" />\n`;
-            xmlStr += `    <property name="size" type="vec2" value="100.000000,100.000000" />\n`;
-            xmlStr += `  </shape>\n`;
-            xmlStr += `</scene>`;
-
+            const xmlStr = generateAmXml({ title, w, h, fps, duration, parsedBeats });
             const blob = new Blob([xmlStr], { type: 'text/xml' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -335,6 +345,91 @@
             { label: 'OUTPUT', value: 'Alight Motion XML' },
             { label: 'PROCESSING', value: 'Instant Client-side' }
         ],
+        schema: {
+            inputs: [
+                {
+                    id: 'file',
+                    type: 'file',
+                    label: 'After Effects XML',
+                    labelKey: 'tool_ae_am_drop',
+                    subtitle: 'Supports After Effects (.xml)',
+                    accept: ['.xml', '.aepx', 'text/xml', 'application/xml'],
+                    required: true
+                },
+                {
+                    id: 'title',
+                    type: 'text',
+                    label: 'Project Title',
+                    labelKey: 'tool_ae_am_project_title',
+                    default: 'Project XML',
+                    placeholder: 'Project XML'
+                },
+                {
+                    id: 'fps',
+                    type: 'select',
+                    label: 'Frame Rate',
+                    default: '30',
+                    options: ['24', '25', '30', '60']
+                }
+            ]
+        },
+        run: async function(inputs, context = {}) {
+            const file = inputs.file || selectedFile;
+            if (!file) throw new Error('No AE XML file provided.');
+
+            const onProgress = context.onProgress || (() => {});
+            const onLog = context.onLog || (() => {});
+
+            onProgress(15, 'Reading AE XML file...');
+            onLog(`Reading ${file.name}...`);
+
+            const text = await file.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(text, 'text/xml');
+            if (!xmlDoc.querySelector('AfterEffectsProject')) {
+                throw new Error("Invalid After Effects Project XML.");
+            }
+
+            const items = xmlDoc.querySelectorAll('Fold > Item');
+            let targetComp = null;
+            let targetCompName = '';
+            items.forEach((item) => {
+                const nameNode = item.querySelector('string');
+                const hasLayers = item.querySelector('SLay') || item.querySelector('CLay');
+                if (nameNode && hasLayers && !targetComp) {
+                    targetComp = item;
+                    targetCompName = nameNode.textContent;
+                }
+            });
+
+            if (!targetComp) {
+                throw new Error("No valid composition found in AE project.");
+            }
+
+            onProgress(50, 'Extracting markers and beats...');
+            const { beats, detectedFps } = extractBeatsFromComp(targetComp);
+            onLog(`Extracted ${beats.length} beats at ${detectedFps} FPS.`);
+
+            const title = inputs.title || targetCompName || 'Project XML';
+            const fps = parseInt(inputs.fps, 10) || detectedFps || 30;
+            const w = parseInt(inputs.width, 10) || 1080;
+            const h = parseInt(inputs.height, 10) || 1920;
+            const lastBeat = beats.length > 0 ? beats[beats.length - 1] : 5000;
+            const duration = lastBeat + Math.ceil(1000 / fps);
+
+            onProgress(85, 'Generating Alight Motion XML...');
+            const xmlStr = generateAmXml({ title, w, h, fps, duration, parsedBeats: beats });
+
+            onProgress(100, 'Done!');
+            onLog('Alight Motion XML ready.');
+
+            return {
+                type: 'file',
+                data: new Blob([xmlStr], { type: 'text/xml' }),
+                filename: `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_am.xml`,
+                mimeType: 'text/xml'
+            };
+        },
         initModal: function(ctx) {
             initAeAmUI(ctx);
             selectedFile = null;

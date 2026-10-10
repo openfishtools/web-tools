@@ -5,6 +5,7 @@
 
     let currentMeta = null;
     let isDownloading = false;
+    let activeContext = null;
 
     function t(key) {
         return (window.getTranslation && window.getTranslation(key)) || key;
@@ -57,6 +58,9 @@
     }
 
     function setProgress(percent, text) {
+        if (activeContext && typeof activeContext.onProgress === 'function') {
+            activeContext.onProgress(percent, text);
+        }
         const progressSec = document.getElementById('tool-progress-section');
         const progressFill = document.getElementById('tool-progress-fill');
         const progressStatus = document.getElementById('tool-progress-status');
@@ -92,6 +96,14 @@
                 throw new Error("Could not extract video stream.");
             }
 
+            if (activeContext && typeof activeContext.onPreview === 'function') {
+                activeContext.onPreview({
+                    cover: currentMeta.cover || '',
+                    author: currentMeta.author_nickname || currentMeta.author_unique_id || 'Creator',
+                    title: currentMeta.title || '—'
+                });
+            }
+
             const dlPreview = document.getElementById('tiktok-dl-preview');
             const dlCover = document.getElementById('tiktok-dl-cover');
             const dlAuthor = document.getElementById('tiktok-dl-author');
@@ -107,7 +119,7 @@
                 }
             }
 
-            await downloadVideo();
+            return await downloadVideo();
 
         } catch (err) {
             console.error(err);
@@ -115,6 +127,7 @@
             if (window.ToolProgressManager) {
                 window.ToolProgressManager.clear('tool-tiktok-downloader');
             }
+            if (activeContext) throw err;
         }
     }
 
@@ -160,11 +173,22 @@
             setProgress(100, "Finalizing...");
             setButtonState('processing', "Finalizing...");
             const blob = new Blob(chunks, { type: 'video/mp4' });
-            const blobUrl = URL.createObjectURL(blob);
+            const filename = `tiktok_${currentMeta.author_unique_id || 'video'}_${Date.now()}.mp4`;
 
+            if (activeContext) {
+                setProgress(100, "Done!");
+                setButtonState('completed', t('status_download_success') || "Video Downloaded!");
+                return {
+                    type: 'file',
+                    data: blob,
+                    filename: filename
+                };
+            }
+
+            const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = blobUrl;
-            a.download = `tiktok_${currentMeta.author_unique_id || 'video'}_${Date.now()}.mp4`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -196,6 +220,7 @@
             if (window.ToolProgressManager) {
                 window.ToolProgressManager.clear('tool-tiktok-downloader');
             }
+            if (activeContext) throw err;
         }
     }
 
@@ -210,6 +235,34 @@
         category: ['TikTok', 'Downloader', 'Tools'],
         inputType: 'url',
         hideDropZone: true,
+
+        schema: {
+            inputs: [
+                {
+                    name: 'url',
+                    type: 'url',
+                    label: 'TikTok Video URL',
+                    labelKey: 'tool_downloader_url',
+                    placeholder: 'https://www.tiktok.com/... or https://tt.site/...',
+                    required: true,
+                    validate: isTikTokUrl
+                }
+            ]
+        },
+
+        run: async function(inputs, context) {
+            activeContext = context;
+            try {
+                let url = (inputs.url || '').trim();
+                if (!url) throw new Error('TikTok URL is required');
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                return await resolveAndDownload(url);
+            } finally {
+                activeContext = null;
+            }
+        },
 
         initModal: function(ctx) {
             const { optContainer, processBtn, processLabel, ui } = ctx;

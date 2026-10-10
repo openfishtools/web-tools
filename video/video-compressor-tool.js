@@ -17,7 +17,12 @@
     const MAX_FILE_MB_HARD = 1500;
     const MAX_DIMENSION = 3840;
 
+    let activeContext = null;
+
     function appendToLogsEl(msg) {
+        if (activeContext && typeof activeContext.onLog === 'function') {
+            activeContext.onLog(msg);
+        }
         const logsEl = document.getElementById('compressor-logs');
         if (logsEl) {
             logsEl.textContent += msg + '\n';
@@ -28,6 +33,18 @@
     function log(msg) { appendToLogsEl(msg); }
     function logSection(title) { appendToLogsEl(`\n=== ${title} ===`); }
     function logEnd() { appendToLogsEl('====================\n'); }
+
+    function reportProgress(percent, text) {
+        if (activeContext && typeof activeContext.onProgress === 'function') {
+            activeContext.onProgress(percent, text);
+        }
+        const progressFill = document.getElementById('tool-progress-fill');
+        const progressPercent = document.getElementById('tool-progress-percent');
+        const progressStatus = document.getElementById('tool-progress-status');
+        if (progressFill) progressFill.style.width = `${percent}%`;
+        if (progressPercent) progressPercent.textContent = `${percent}%`;
+        if (progressStatus && text) progressStatus.textContent = text;
+    }
 
     function updateDesc() {
         const descEl = document.getElementById('compressor-info-desc');
@@ -445,10 +462,8 @@
 
                 ffmpeg.on('progress', ({ progress }) => {
                     const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
-                    if (progressFill) progressFill.style.width = `${percent}%`;
-                    if (progressPercent) progressPercent.textContent = `${percent}%`;
                     const statusMsg = `${t('status_encoding')}...`;
-                    if (progressStatus) progressStatus.textContent = statusMsg;
+                    reportProgress(percent, statusMsg);
                     if (window.ToolProgressManager) {
                         window.ToolProgressManager.set('tool-video-compressor', { isProcessing: true, percent, status: statusMsg, file });
                     }
@@ -688,15 +703,17 @@
 
                 const blob = new Blob([data], { type: 'video/mp4' });
                 const outName = `compressed_${selectedPreset}_${file.name.replace(/\.[^.]+$/, '')}.mp4`;
-                const url = URL.createObjectURL(blob);
 
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = outName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                if (!activeContext) {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = outName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }
 
                 try {
                     await ffmpeg.deleteFile('input.mp4');
@@ -704,7 +721,7 @@
                     await ffmpeg.terminate();
                 } catch (_) {}
 
-                return { outName, byteLength: data.byteLength };
+                return { outName, byteLength: data.byteLength, blob };
             };
 
             let passResult = null;
@@ -715,17 +732,14 @@
                     log(`\n⚠️ [AUTO-FALLBACK] Multi-Thread gagal / Out of Memory (${errMsg(firstErr)}).`);
                     log(`🔄 Mengulang otomatis menggunakan Single-Thread (Safe Mode)...\n`);
                     if (progressStatus) progressStatus.textContent = 'Memori penuh (OOM). Beralih ke Single-Thread...';
-                    if (progressFill) progressFill.style.width = '10%';
-                    if (progressPercent) progressPercent.textContent = '10%';
+                    reportProgress(10, 'Memori penuh (OOM). Beralih ke Single-Thread...');
                     passResult = await runCompressionPass(false);
                 } else {
                     throw firstErr;
                 }
             }
 
-            if (progressFill) progressFill.style.width = '100%';
-            if (progressPercent) progressPercent.textContent = '100%';
-            if (progressStatus) progressStatus.textContent = t('status_completed');
+            reportProgress(100, t('status_completed') || 'Done!');
             if (window.ToolProgressManager) {
                 window.ToolProgressManager.set('tool-video-compressor', { isProcessing: false, completed: true, percent: 100, status: t('status_completed'), file });
             }
@@ -745,6 +759,13 @@
             if (typeof window.showToast === 'function') {
                 window.showToast(t('status_completed_toast'));
             }
+
+            return {
+                type: 'file',
+                data: passResult ? passResult.blob : null,
+                filename: passResult ? passResult.outName : `compressed_${file.name}`,
+                mimeType: 'video/mp4'
+            };
         } catch (err) {
             console.error('Video Compressor Error:', err);
             log(`\n!! Error: ${err.message}`);
@@ -755,6 +776,7 @@
             if (window.ToolProgressManager) {
                 window.ToolProgressManager.clear('tool-video-compressor');
             }
+            throw err;
         } finally {
             isProcessing = false;
             if (processBtn) processBtn.disabled = false;
@@ -781,11 +803,56 @@
             { label: 'FORMAT', value: 'MP4, MOV, WebM, MKV' },
             { label: 'PROCESSING', value: '100% Client-side (Local)' }
         ],
+        schema: {
+            inputs: [
+                {
+                    id: 'videoFile',
+                    type: 'file',
+                    label: 'Video File',
+                    labelKey: 'tool_compressor_drop',
+                    subtitle: 'Supports MP4, MOV, WebM',
+                    accept: ['video/mp4', 'video/quicktime', 'video/webm', 'video/*'],
+                    required: true,
+                    maxSizeMb: 1500
+                },
+                {
+                    id: 'preset',
+                    type: 'segmented',
+                    label: 'Compression Preset',
+                    default: 'medium',
+                    options: [
+                        { value: 'fast', label: 'Fast (H.264 Veryfast)' },
+                        { value: 'medium', label: 'Balanced (H.265 Ultrafast)' },
+                        { value: 'slow', label: 'Quality (H.265 Superfast)' }
+                    ]
+                },
+                {
+                    id: 'threadMode',
+                    type: 'segmented',
+                    label: 'Threading Engine',
+                    default: 'multi',
+                    options: [
+                        { value: 'multi', label: 'Multi-Thread (Fast)' },
+                        { value: 'single', label: 'Single-Thread (Safe)' }
+                    ]
+                }
+            ]
+        },
+        run: async function(inputs, context = {}) {
+            activeContext = context;
+            const file = inputs.videoFile || inputs.file || selectedFile;
+            if (!file) throw new Error('No video file provided.');
+            if (inputs.preset) selectedPreset = inputs.preset;
+            if (inputs.threadMode) selectedThreadMode = inputs.threadMode;
+
+            return await processVideoCompressor(file);
+        },
         initModal: initCompressorUI,
         onProcess: processVideoCompressor,
         onReset: function() {
             selectedFile = null;
             isProcessing = false;
+            activeContext = null;
             const logsContainer = document.getElementById('compressor-logs-container');
             if (logsContainer) logsContainer.classList.add('hidden');
             const logs = document.getElementById('compressor-logs');

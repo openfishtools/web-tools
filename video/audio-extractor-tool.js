@@ -11,6 +11,7 @@
 
     let selectedFile = null;
     let isExtracting = false;
+    let activeContext = null;
 
     const MAX_FILE_MB = 800;
     const MAX_FILE_MB_HARD = 1500;
@@ -43,6 +44,9 @@
     }
 
     function setProgress(percent, text) {
+        if (activeContext && typeof activeContext.onProgress === 'function') {
+            activeContext.onProgress(percent, text);
+        }
         const progressSec = document.getElementById('tool-progress-section');
         const progressFill = document.getElementById('tool-progress-fill');
         const progressStatus = document.getElementById('tool-progress-status');
@@ -214,15 +218,18 @@
             }
 
             const blob = new Blob([data], { type: 'audio/mpeg' });
-            const url = URL.createObjectURL(blob);
+            const outName = `${file.name.replace(/\.[^.]+$/, '')}.mp3`;
 
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'audio.mp3';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            if (!activeContext) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = outName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
 
             try {
                 await ffmpeg.deleteFile(inputName);
@@ -246,6 +253,13 @@
                 window.showToast(t('status_completed_toast') || 'Audio extracted successfully!');
             }
 
+            return {
+                type: 'file',
+                data: blob,
+                filename: outName,
+                mimeType: 'audio/mpeg'
+            };
+
         } catch (error) {
             console.error('Audio Extractor Error:', error);
             const msg = (error.message || '').toLowerCase();
@@ -256,6 +270,7 @@
             if (window.ToolProgressManager) {
                 window.ToolProgressManager.clear('tool-audio-extractor');
             }
+            throw error;
         } finally {
             isExtracting = false;
         }
@@ -284,6 +299,27 @@
             { label: 'BITRATE', value: '192 kbps MP3' },
             { label: 'PRIVACY', value: '100% Local (Zero Server Upload)' }
         ],
+        schema: {
+            inputs: [
+                {
+                    id: 'videoFile',
+                    type: 'file',
+                    label: 'Video File',
+                    labelKey: 'tool_audio_extractor_drop',
+                    subtitle: 'Supports MP4, MOV, WebM, MKV, AVI',
+                    accept: ['video/mp4', 'video/quicktime', 'video/webm', 'video/*'],
+                    required: true,
+                    maxSizeMb: 1500
+                }
+            ]
+        },
+        run: async function(inputs, context = {}) {
+            activeContext = context;
+            const file = inputs.videoFile || inputs.file || selectedFile;
+            if (!file) throw new Error('No video file provided.');
+
+            return await extractAudio(file);
+        },
         initModal: function(ctx) {
             const { optContainer, processLabel } = ctx;
             if (optContainer) optContainer.innerHTML = '';
@@ -300,6 +336,7 @@
         onReset: function() {
             selectedFile = null;
             isExtracting = false;
+            activeContext = null;
         },
         clearCache: function(btn) {
             if (typeof window.clearAllToolCache === 'function') window.clearAllToolCache(btn);

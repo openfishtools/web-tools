@@ -27,6 +27,8 @@
     let batchFiles = [];
     let batchResults = [];
     let batchDone = false;
+    let activeContext = null;
+    let lastResultOutput = null;
 
     function cloneCanvas(src) {
         const c = document.createElement('canvas');
@@ -142,6 +144,9 @@
     }
 
     function setProgress(percent, text) {
+        if (activeContext && typeof activeContext.onProgress === 'function') {
+            activeContext.onProgress(percent, text);
+        }
         const progressSec = document.getElementById('tool-progress-section');
         const progressFill = document.getElementById('tool-progress-fill');
         const progressStatus = document.getElementById('tool-progress-status');
@@ -190,6 +195,9 @@
     }
 
     function log(msg) {
+        if (activeContext && typeof activeContext.onLog === 'function') {
+            activeContext.onLog(msg);
+        }
         const logsEl = document.getElementById('upscale-logs');
         if (logsEl) {
             logsEl.textContent += (logsEl.textContent ? '\n' : '') + msg;
@@ -381,6 +389,10 @@
     }
 
     function triggerDownload(blob, filename) {
+        lastResultOutput = { blob, filename };
+        if (activeContext) {
+            return;
+        }
         const outUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = outUrl;
@@ -1483,6 +1495,7 @@
             if (window.ToolProgressManager) {
                 window.ToolProgressManager.clear('tool-upscale-enhancer');
             }
+            if (activeContext) throw err;
         } finally {
             isProcessing = false;
         }
@@ -1894,6 +1907,72 @@
         ],
         hideDropOnUpload: true,
         multiFile: true,
+        schema: {
+            inputs: [
+                {
+                    name: 'file',
+                    type: 'file',
+                    label: 'Media File (Image or Video)',
+                    labelKey: 'tool_upscale_drop',
+                    accept: 'image/*,video/*',
+                    required: true
+                },
+                {
+                    name: 'preset',
+                    type: 'select',
+                    label: 'Enhance Preset',
+                    default: 'cartoonist',
+                    options: [
+                        { label: 'Cartoonist', value: 'cartoonist' },
+                        { label: 'Cartoonist 2', value: 'cartoonist2' },
+                        { label: 'Human Detail', value: 'humanDetail' },
+                        { label: 'Smooth Face', value: 'smoothFace' },
+                        { label: 'IDGAF', value: 'idgaf' },
+                        { label: 'No Filter', value: 'none' }
+                    ]
+                },
+                {
+                    name: 'timing',
+                    type: 'segmented',
+                    label: 'Order',
+                    default: 'before',
+                    options: [
+                        { label: 'Filter > Upscale', value: 'before' },
+                        { label: 'Upscale > Filter', value: 'after' }
+                    ]
+                },
+                {
+                    name: 'normalise',
+                    type: 'toggle',
+                    label: 'Crop to 9:16 (Center)',
+                    default: false
+                }
+            ]
+        },
+        run: async function(inputs, context) {
+            activeContext = context;
+            lastResultOutput = null;
+            try {
+                const file = inputs.file || inputs.videoFile;
+                if (!file) throw new Error('File is required');
+                selectedFile = file;
+                activePreset = inputs.preset || 'cartoonist';
+                enhanceTiming = inputs.timing || 'before';
+                normaliseSize = !!inputs.normalise;
+                isImageMode = file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(file.name);
+                await enhanceMedia(file);
+                if (lastResultOutput) {
+                    return {
+                        type: 'file',
+                        data: lastResultOutput.blob,
+                        filename: lastResultOutput.filename
+                    };
+                }
+                throw new Error('Enhancement failed to produce an output file.');
+            } finally {
+                activeContext = null;
+            }
+        },
         initModal: function(ctx) {
             const { optContainer, dropZone } = ctx;
             const st = window.ToolProgressManager ? window.ToolProgressManager.get('tool-upscale-enhancer') : null;

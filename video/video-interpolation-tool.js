@@ -15,8 +15,12 @@
     let originalFps = 30;
     let ffmpegInstance = null;
     let cancelRife = false;
+    let activeContext = null;
 
     function log(msg) {
+        if (activeContext && typeof activeContext.onLog === 'function') {
+            activeContext.onLog(msg);
+        }
         const logsEl = document.getElementById('interp-logs');
         if (logsEl) {
             logsEl.textContent += (logsEl.textContent ? '\n' : '') + msg;
@@ -54,6 +58,9 @@
     }
 
     function setProgress(percent, text) {
+        if (activeContext && typeof activeContext.onProgress === 'function') {
+            activeContext.onProgress(percent, text);
+        }
         const progressSec = document.getElementById('tool-progress-section');
         const progressFill = document.getElementById('tool-progress-fill');
         const progressStatus = document.getElementById('tool-progress-status');
@@ -457,9 +464,19 @@
             }
 
             const blob = new Blob([data], { type: 'video/mp4' });
-            const outUrl = URL.createObjectURL(blob);
-
             const outName = file.name.replace(/\.[^/.]+$/, '') + `_${multiplier}x_${targetFps}fps.mp4`;
+
+            if (activeContext) {
+                setProgress(100, t('status_completed') || 'Done!');
+                setButtonState('completed', t('status_process_another') || 'Process Another');
+                return {
+                    type: 'file',
+                    data: blob,
+                    filename: outName
+                };
+            }
+
+            const outUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = outUrl;
             a.download = outName;
@@ -492,6 +509,7 @@
             if (window.ToolProgressManager) {
                 window.ToolProgressManager.clear('tool-video-interpolation');
             }
+            if (activeContext) throw err;
         } finally {
             if (ffmpeg) {
                 for(let f=0; f<outIdx; f++){ try{ await ffmpeg.deleteFile(`frame_${String(f).padStart(5,'0')}.jpg`);}catch(e){} }
@@ -525,6 +543,42 @@
             { label: 'ACCELERATION', value: 'WebGPU / WASM' },
             { label: 'PROCESSING', value: '100% Local Browser' }
         ],
+        schema: {
+            inputs: [
+                {
+                    name: 'videoFile',
+                    type: 'file',
+                    label: 'Video File',
+                    labelKey: 'tool_interp_drop',
+                    accept: 'video/*',
+                    required: true
+                },
+                {
+                    name: 'multiplier',
+                    type: 'segmented',
+                    label: 'FPS Multiplier',
+                    labelKey: 'interp_multiplier_title',
+                    default: 2,
+                    options: [
+                        { label: '2X', value: 2 },
+                        { label: '4X', value: 4 },
+                        { label: '8X', value: 8 }
+                    ]
+                }
+            ]
+        },
+        run: async function(inputs, context) {
+            activeContext = context;
+            try {
+                const videoFile = inputs.videoFile || inputs.file;
+                if (!videoFile) throw new Error('Video file is required');
+                multiplier = parseInt(inputs.multiplier, 10) || 2;
+                originalFps = await detectFps(videoFile);
+                return await processInterpolation(videoFile);
+            } finally {
+                activeContext = null;
+            }
+        },
         initModal: function(ctx) {
             const { optContainer, processLabel } = ctx;
             if (optContainer) optContainer.innerHTML = '';

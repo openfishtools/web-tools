@@ -14,6 +14,14 @@
     let isProcessing = false;
     let defaultFps = 30;
     let defaultBitrate = 12;
+    let activeContext = null;
+
+    function log(msg) {
+        if (activeContext && typeof activeContext.onLog === 'function') {
+            activeContext.onLog(msg);
+        }
+        console.log('[Image Sequence]', msg);
+    }
 
     function setButtonState(state, text) {
         const processBtn = document.getElementById('tool-process-btn');
@@ -43,6 +51,9 @@
     }
 
     function setProgress(percent, text) {
+        if (activeContext && typeof activeContext.onProgress === 'function') {
+            activeContext.onProgress(percent, text);
+        }
         const progressSec = document.getElementById('tool-progress-section');
         const progressFill = document.getElementById('tool-progress-fill');
         const progressStatus = document.getElementById('tool-progress-status');
@@ -371,12 +382,23 @@
             }
 
             const blob = new Blob([data], { type: 'video/mp4' });
-            const url = URL.createObjectURL(blob);
-
             const outBase = zipFile.name.replace(/\.[^/.]+$/, '');
+            const outName = `${outBase}_${fps}fps.mp4`;
+
+            if (activeContext) {
+                setProgress(100, t('status_download_success') || 'Video successfully generated!');
+                setButtonState('completed', t('status_process_another') || 'Process Another');
+                return {
+                    type: 'file',
+                    data: blob,
+                    filename: outName
+                };
+            }
+
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${outBase}_${fps}fps.mp4`;
+            a.download = outName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -405,6 +427,7 @@
             if (window.ToolProgressManager) {
                 window.ToolProgressManager.clear('tool-image-sequence');
             }
+            if (activeContext) throw error;
         } finally {
             try {
                 if (ffmpeg) {
@@ -442,6 +465,57 @@
             { label: 'OUTPUT', value: 'H.264 MP4' },
             { label: 'PROCESSING', value: '100% Client-side' }
         ],
+        schema: {
+            inputs: [
+                {
+                    name: 'zipFile',
+                    type: 'file',
+                    label: 'ZIP Archive',
+                    labelKey: 'tool_seq_drop',
+                    accept: '.zip',
+                    required: true
+                },
+                {
+                    name: 'fps',
+                    type: 'number',
+                    label: 'Frame Rate (FPS)',
+                    labelKey: 'tool_seq_fps',
+                    min: 1,
+                    max: 240,
+                    default: 30
+                },
+                {
+                    name: 'bitrate',
+                    type: 'number',
+                    label: 'Bitrate (Mbps)',
+                    labelKey: 'tool_seq_bitrate',
+                    min: 1,
+                    max: 50,
+                    default: 12
+                },
+                {
+                    name: 'audioFile',
+                    type: 'file',
+                    label: 'Audio Track (Optional)',
+                    labelKey: 'tool_seq_audio_drop',
+                    accept: 'audio/*,video/*',
+                    required: false
+                }
+            ]
+        },
+        run: async function(inputs, context) {
+            activeContext = context;
+            try {
+                const zipFile = inputs.zipFile || inputs.file;
+                if (!zipFile) throw new Error('ZIP file is required');
+                defaultFps = parseInt(inputs.fps, 10) || 30;
+                defaultBitrate = parseInt(inputs.bitrate, 10) || 12;
+                selectedAudioFile = inputs.audioFile || null;
+                return await processSequence(zipFile);
+            } finally {
+                activeContext = null;
+            }
+        },
         initModal: function(ctx) {
             initSequenceUI(ctx);
             selectedZipFile = null;

@@ -12,6 +12,7 @@
     let selectedFile = null;
     let loadedXmlText = null;
     let currentFilter = 'all';
+    let activeContext = null;
 
     function setButtonState(state, text) {
         const processBtn = document.getElementById('tool-process-btn');
@@ -345,16 +346,27 @@
         return 'placeholder';
     }
 
-    function generate5MbXml() {
+    function generate5MbXml(options) {
         if (!selectedFile || !loadedXmlText) return;
 
         setButtonState('processing', t('status_processing') || 'Processing XML...');
+        if (activeContext && typeof activeContext.onProgress === 'function') {
+            activeContext.onProgress(20, 'Parsing XML...');
+        }
 
         try {
-            const layersList = document.getElementById('fivemb-layers-list');
-            const checkedBoxes = layersList ? layersList.querySelectorAll('.layer-checkbox:checked') : [];
-            const selectedIds = new Set();
-            checkedBoxes.forEach(cb => selectedIds.add(cb.getAttribute('data-id')));
+            let selectedIds = new Set();
+            if (options && options.selectedIds && Array.isArray(options.selectedIds)) {
+                selectedIds = new Set(options.selectedIds);
+            } else {
+                const layersList = document.getElementById('fivemb-layers-list');
+                const checkedBoxes = layersList ? layersList.querySelectorAll('.layer-checkbox:checked') : [];
+                if (checkedBoxes && checkedBoxes.length > 0) {
+                    checkedBoxes.forEach(cb => selectedIds.add(cb.getAttribute('data-id')));
+                }
+            }
+
+            const replaceMode = (options && options.replaceMode) || 'all';
 
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(loadedXmlText, "text/xml");
@@ -373,8 +385,19 @@
                 const hasMediaLabel = /\.(png|jpe?g|webp|gif|mp4|mov|3gp|mkv|webm)$/i.test(label);
 
                 if (isMediaFill || hasMediaLabel) {
-                    if (selectedIds.has(id)) {
-                        const isVideo = fillVideo || /\.(mp4|mov|3gp|mkv|webm)$/i.test(label);
+                    const isVideo = fillVideo || /\.(mp4|mov|3gp|mkv|webm)$/i.test(label);
+                    let shouldReplace = false;
+                    if (selectedIds.size > 0) {
+                        shouldReplace = selectedIds.has(id);
+                    } else {
+                        if (replaceMode === 'all' || replaceMode === 'video_photo') {
+                            shouldReplace = true;
+                        } else if (replaceMode === 'video_only' && isVideo) {
+                            shouldReplace = true;
+                        }
+                    }
+
+                    if (shouldReplace) {
                         const layerType = isVideo ? 'video' : 'photo';
                         const placeholder = getPlaceholderFilename(layerType, label);
 
@@ -406,7 +429,14 @@
                 const label = audio.getAttribute("label") || audio.getAttribute("name") || "";
                 const placeholder = getPlaceholderFilename('audio', label);
 
-                if (selectedIds.has(id)) {
+                let shouldReplaceAudio = false;
+                if (selectedIds.size > 0) {
+                    shouldReplaceAudio = selectedIds.has(id);
+                } else if (replaceMode === 'all') {
+                    shouldReplaceAudio = true;
+                }
+
+                if (shouldReplaceAudio) {
                     audio.setAttribute("name", placeholder);
                     audio.setAttribute("audio", placeholder);
                     audio.setAttribute("audioVideo", placeholder);
@@ -439,9 +469,19 @@
             const modifiedXml = serializer.serializeToString(xmlDoc);
 
             const blob = new Blob([modifiedXml], { type: 'text/xml' });
-            const url = URL.createObjectURL(blob);
-
             const outName = selectedFile.name.replace(/\.xml$/i, '') + '_5mb.xml';
+
+            if (activeContext) {
+                if (typeof activeContext.onProgress === 'function') activeContext.onProgress(100, 'XML generated successfully!');
+                setButtonState('completed', t('status_process_another') || 'Process Another');
+                return {
+                    type: 'file',
+                    data: blob,
+                    filename: outName
+                };
+            }
+
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = outName;
@@ -459,6 +499,7 @@
         } catch (err) {
             console.error('[5MB Generator] Export error:', err);
             setButtonState('error', 'XML Export failed');
+            if (activeContext) throw err;
         }
     }
 
@@ -485,6 +526,41 @@
             { label: 'OUTPUT', value: '5MB Optimized XML' },
             { label: 'PLATFORM', value: 'Android & iOS Alight Motion' }
         ],
+        schema: {
+            inputs: [
+                {
+                    name: 'xmlFile',
+                    type: 'file',
+                    label: 'Alight Motion XML (.xml)',
+                    labelKey: 'tool_fivemb_drop',
+                    accept: '.xml',
+                    required: true
+                },
+                {
+                    name: 'replaceMode',
+                    type: 'select',
+                    label: 'Replace Mode',
+                    default: 'all',
+                    options: [
+                        { label: 'All Media (Videos, Photos, Audios)', value: 'all' },
+                        { label: 'Videos & Photos Only', value: 'video_photo' },
+                        { label: 'Videos Only', value: 'video_only' }
+                    ]
+                }
+            ]
+        },
+        run: async function(inputs, context) {
+            activeContext = context;
+            try {
+                const xmlFile = inputs.xmlFile || inputs.file;
+                if (!xmlFile) throw new Error('XML file is required');
+                selectedFile = xmlFile;
+                loadedXmlText = await xmlFile.text();
+                return generate5MbXml({ replaceMode: inputs.replaceMode || 'all' });
+            } finally {
+                activeContext = null;
+            }
+        },
         initModal: function(ctx) {
             initFiveMbUI(ctx);
             selectedFile = null;

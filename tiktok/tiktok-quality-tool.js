@@ -17,6 +17,7 @@
     let currentInspectedFile = null;
     let currentVideoSpecs = null;
     let isExtensionDetected = false;
+    let activeContext = null;
 
     const MAX_FILE_MB = 1500;
 
@@ -31,6 +32,9 @@
     }
 
     function appendToLogsEl(msg) {
+        if (activeContext && typeof activeContext.onLog === 'function') {
+            activeContext.onLog(msg);
+        }
         const logsEl = document.getElementById('tiktok-logs');
         if (logsEl) {
             logsEl.textContent += msg + '\n';
@@ -1516,15 +1520,18 @@
         const bytes = new Uint8Array(buffer);
         const blob = new Blob([bytes], { type: 'video/mp4' });
         const outName = `[PATCHED_FPS]_${file.name}`;
-        const url = URL.createObjectURL(blob);
+        window._lastFinalizedPatcherResult = { filename: outName, blob };
 
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = outName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        if (!activeContext) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = outName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
 
         if (progressFill) progressFill.style.width = '100%';
         if (progressPercent) progressPercent.textContent = '100%';
@@ -1558,6 +1565,8 @@
         get hdrEnabled() { return false; },
         get selectedFile() { return selectedFile; },
         set selectedFile(v) { selectedFile = v; },
+        get activeContext() { return activeContext; },
+        set activeContext(v) { activeContext = v; },
         get statusText() { return document.getElementById('tool-progress-status') || { innerHTML: '' }; },
         get btnStart() { return document.getElementById('tool-process-btn') || { classList: { add(){}, remove(){} } }; },
         get progressContainer() { return document.getElementById('tool-progress-section') || { classList: { add(){}, remove(){} } }; },
@@ -1615,6 +1624,69 @@
             { label: 'FORMAT', value: 'MP4, MOV, WebM' },
             { label: 'PROCESSING', value: 'Client-side (Browser)' }
         ],
+        schema: {
+            inputs: [
+                {
+                    name: 'videoFile',
+                    type: 'file',
+                    label: 'Video File',
+                    labelKey: 'tool_drop_video',
+                    accept: 'video/*',
+                    required: true
+                },
+                {
+                    name: 'method',
+                    type: 'segmented',
+                    label: 'Quality Method',
+                    default: 'tbt',
+                    options: [
+                        { label: 'FISH (v2)', value: 'tbt' },
+                        { label: 'Binary', value: 'binary' },
+                        { label: 'StreamShield', value: 'streamshield' },
+                        { label: 'F R Y', value: 'v3' },
+                        { label: 'FPS 60', value: 'fps' },
+                        { label: 'WMV', value: 'v1' }
+                    ]
+                },
+                {
+                    name: 'compress',
+                    type: 'segmented',
+                    label: 'Resolution / Compress',
+                    default: 'off',
+                    options: [
+                        { label: 'Original (Off)', value: 'off' },
+                        { label: '720p HD', value: '720p' },
+                        { label: '1080p Full HD', value: '1080p' }
+                    ]
+                }
+            ]
+        },
+        run: async function(inputs, context) {
+            activeContext = context;
+            if (window._tktk) window._tktk.activeContext = context;
+            window._lastFinalizedPatcherResult = null;
+            try {
+                const file = inputs.videoFile || inputs.file;
+                if (!file) throw new Error('Video file is required');
+                currentVersion = inputs.method || 'tbt';
+                compressMode = inputs.compress || 'off';
+                selectedFile = file;
+                await processQualityMethod(file);
+                if (window._lastFinalizedPatcherResult) {
+                    const r = window._lastFinalizedPatcherResult;
+                    if (typeof context.onProgress === 'function') context.onProgress(100, 'Done!');
+                    return {
+                        type: 'file',
+                        data: r.blob,
+                        filename: r.filename
+                    };
+                }
+                throw new Error('Patcher did not produce an output file.');
+            } finally {
+                activeContext = null;
+                if (window._tktk) window._tktk.activeContext = null;
+            }
+        },
         initModal: initQualityMethodUI,
         onFileSelect: inspectAndAlert,
         onProcess: processQualityMethod,
