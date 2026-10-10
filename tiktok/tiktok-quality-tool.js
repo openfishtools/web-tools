@@ -1609,7 +1609,9 @@
         isTool: true,
         version: '3.7.0',
         title: 'Quality method',
+        titleKey: 'tool_patcher_title',
         desc: 'TikTok HQ Upload',
+        descKey: 'patcher_subtitle',
         icon: 'high_quality',
         category: ['TikTok', 'Tools'],
         features: [

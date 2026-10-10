@@ -789,7 +789,9 @@
         isTool: true,
         version: '2.2.0',
         title: 'Video Compressor',
+        titleKey: 'tool_compressor_title',
         desc: 'Compress video to custom quality and file sizes',
+        descKey: 'tool_compressor_desc',
         icon: 'compress',
         category: ['Video', 'Tools'],
         features: [

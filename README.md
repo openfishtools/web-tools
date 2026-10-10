@@ -1,295 +1,109 @@
 # OpenFishTools Web Tools
 
-Koleksi library tool video processing, konversi animasi, analitik media, dan AI vision berbasis client-side murni untuk web browser modern.
+A collection of pure client-side video processing, AI vision, media analytics, and animation conversion libraries for modern web browsers.
 
-Semua tool di repository ini dibangun dengan arsitektur **Universal / Headless / Schema-Driven**:
-- **Zero DOM Lock-in**: Tool tidak memaksa struktur HTML atau DOM ID tertentu. Developer bebas mendesain UI sendiri (Tailwind, Bootstrap, React, Vue, Svelte, dsb).
-- **Declarative Input Schema**: Setiap parameter input (file, dropdown, slider, segmented pill, toggle, url) didefinisikan secara deklaratif di `tool.schema.inputs`.
-- **Pure Execution Function**: Pemrosesan dijalankan melalui fungsi `async run(inputs, context)` yang menerima nilai raw dan memancarkan callback real-time (`onProgress`, `onLog`, `onPreview`).
-- **Standardized Output**: Tool mengembalikan data output terstruktur (`type: 'file'` atau `type: 'data'`).
-
----
-
-## Daftar Isi
-1. [Arsitektur Tool](#arsitektur-tool)
-2. [Spesifikasi Schema Input](#spesifikasi-schema-input)
-3. [Spesifikasi Context & Callback](#spesifikasi-context--callback)
-4. [Format Output](#format-output)
-5. [Panduan Integrasi ke Web](#panduan-integrasi-ke-web)
-   - [Contoh Integrasi Vanilla JavaScript](#contoh-integrasi-vanilla-javascript)
-   - [Contoh Integrasi React](#contoh-integrasi-react)
-6. [Katalog Tools](#katalog-tools)
-7. [Dependensi dan Resource Runtime](#dependensi-dan-resource-runtime)
-8. [Lisensi](#lisensi)
+All tools in this repository follow a **Universal, Headless, Schema-Driven** architecture:
+- **Zero DOM Lock-in**: Tools do not enforce any specific HTML structure or DOM IDs. You can build your own custom UI using React, Vue, Svelte, Tailwind, Bootstrap, or plain Vanilla HTML/CSS.
+- **Direct CDN Access (No Git Clone Required)**: You can load any tool script directly into your web app via public CDNs (e.g., jsDelivr, unpkg) without needing to clone or install the repository.
+- **Declarative Input Schema**: All parameters (files, selects, sliders, toggles, segmented pills, URLs) are defined declaratively in `tool.schema.inputs`.
+- **Pure Execution Runner**: Every tool exposes an asynchronous `run(inputs, context)` function with real-time callbacks (`onProgress`, `onLog`, `onPreview`).
+- **Standardized Output**: Returns clean, predictable output objects (`type: 'file'` with a binary `Blob`, or `type: 'data'` with structured JSON).
 
 ---
 
-## Arsitektur Tool
+## Table of Contents
 
-Setiap file tool mengekspor object konfigurasi yang didaftarkan ke sistem melalui `window.AppTools.register(tool)` atau tersedia langsung di namespace global (misal: `window.VideoCompressorTool`).
-
-Struktur anatomi tool:
-
-```javascript
-{
-    id: 'tool-video-compressor',
-    version: '1.2.0',
-    title: 'Video Compressor',
-    desc: 'H.264 MP4 WebAssembly Compressor',
-    icon: 'compress',
-    category: ['Video', 'Tools'],
-    features: [ ... ],
-    specs: [ ... ],
-
-    // 1. Declarative Schema
-    schema: {
-        inputs: [
-            {
-                name: 'videoFile',
-                type: 'file',
-                label: 'Video File',
-                accept: 'video/*',
-                required: true
-            },
-            {
-                id: 'preset',
-                name: 'preset',
-                type: 'select',
-                label: 'Preset',
-                default: 'medium',
-                options: [
-                    { label: 'Small', value: 'small' },
-                    { label: 'Balanced', value: 'medium' },
-                    { label: 'Quality', value: 'high' }
-                ]
-            }
-        ]
-    },
-
-    // 2. Pure Headless Runner
-    run: async function(inputs, context) {
-        // Logika pemrosesan client-side
-        // context.onProgress(percent, statusText)
-        // context.onLog(logMessage)
-        return {
-            type: 'file',
-            data: blob,
-            filename: 'compressed_video.mp4'
-        };
-    }
-}
-```
+1. [Quick Start: Direct CDN Integration (No Clone Required)](#quick-start-direct-cdn-integration-no-clone-required)
+   - [Method 1: Direct Script Tag](#method-1-direct-script-tag)
+   - [Method 2: Dynamic On-Demand Script Loader (Recommended)](#method-2-dynamic-on-demand-script-loader-recommended)
+   - [Method 3: React / Next.js Component](#method-3-react--nextjs-component)
+2. [Browser Prerequisites (SharedArrayBuffer & WebAssembly)](#browser-prerequisites-sharedarraybuffer--webassembly)
+3. [Tools Catalog & CDN Links](#tools-catalog--cdn-links)
+4. [Tool Architecture & Runner API](#tool-architecture--runner-api)
+   - [Context & Callbacks](#context--callbacks)
+   - [Standardized Output Formats](#standardized-output-formats)
+5. [Declarative Input Schema Specification](#declarative-input-schema-specification)
+6. [License](#license)
 
 ---
 
-## Spesifikasi Schema Input
+## Quick Start: Direct CDN Integration (No Clone Required)
 
-Input di dalam `tool.schema.inputs` adalah array of object dengan atribut berikut:
+You do **not** need to clone or install this repository. Every tool script is published and accessible worldwide via free Content Delivery Networks (CDNs).
 
-| Tipe Input (`type`) | Properti Tambahan | Keterangan |
-|---|---|---|
-| `file` | `accept`, `required` | Input file / drag-drop. Nilai yang dikirim berupa `File` atau `Blob`. |
-| `select` | `options: [{ label, value }]`, `default` | Dropdown selector. |
-| `segmented` | `options: [{ label, value }]`, `default` | Segmented pill button selector. |
-| `slider` | `min`, `max`, `step`, `unit`, `default` | Range slider untuk nilai numerik. |
-| `number` | `min`, `max`, `step`, `default` | Input angka dengan batasan. |
-| `toggle` | `default: boolean` | Switch on/off. |
-| `url` | `placeholder`, `validate: Function` | Input teks URL dengan validasi format. |
-| `textarea` | `placeholder`, `rows`, `default` | Input teks multi-baris. |
+### Method 1: Direct Script Tag
 
----
-
-## Spesifikasi Context & Callback
-
-Ketika memanggil `tool.run(inputs, context)`, parameter `context` menyediakan callback untuk memantau proses:
-
-```javascript
-const context = {
-    // Dipanggil saat persentase progres berubah (0 - 100)
-    onProgress: (percent, statusText) => {
-        console.log(`Progress: ${percent}% - ${statusText}`);
-    },
-
-    // Dipanggil saat tool menghasilkan baris log teknis (FFmpeg stdout, ONNX steps)
-    onLog: (message) => {
-        console.log(`[Log] ${message}`);
-    },
-
-    // Dipanggil jika tool mengekstrak metadata pratinjau (misal: thumbnail cover TikTok)
-    onPreview: (previewData) => {
-        // { cover: string, author: string, title: string }
-    },
-
-    // AbortSignal opsional untuk membatalkan proses
-    signal: abortController.signal
-};
-```
-
----
-
-## Format Output
-
-Fungsi `tool.run(inputs, context)` mengembalikan Promise yang me-resolve object bertipe salah satu dari dua format:
-
-### 1. Output Berupa File (`type: 'file'`)
-Digunakan oleh compressor, converter, upscaler, background remover, patcher, downloader:
-```javascript
-{
-    type: 'file',
-    data: Blob,                // Objek Blob binary hasil render
-    filename: 'output.mp4',    // Rekomendasi nama file saat didownload
-    mimeType: 'video/mp4'      // MIME type file
-}
-```
-
-### 2. Output Berupa Data Terstruktur (`type: 'data'`)
-Digunakan oleh tool analitik atau metadata scanner (misal: TikTok Statistics):
-```javascript
-{
-    type: 'data',
-    data: {
-        preview: {
-            cover: 'https://...',
-            author: 'Creator Name',
-            title: 'Video Title'
-        },
-        items: [
-            { label: 'Resolution', value: '1080 x 1920' },
-            { label: 'FPS', value: '60 fps' },
-            { label: 'Bitrate', value: '4.50 Mbps' },
-            { label: 'Views', value: '1,250,000' }
-        ]
-    }
-}
-```
-
----
-
-## Panduan Integrasi ke Web
-
-### Contoh Integrasi Vanilla JavaScript
-
-Berikut adalah implementasi lengkap cara memuat tool dan merender form input secara dinamis tanpa library tambahan:
+The simplest way is to include the tool script directly inside your HTML `<head>` or `<body>`.
 
 ```html
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Integrasi OpenFishTools</title>
-    <style>
-        .form-group { margin-bottom: 12px; }
-        .progress-bar { width: 100%; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
-        .progress-fill { height: 100%; width: 0%; background: #0066cc; transition: width 0.2s; }
-        .log-box { background: #111; color: #0f0; padding: 8px; font-family: monospace; font-size: 12px; max-height: 120px; overflow-y: auto; }
-    </style>
+    <title>Audio Extractor Example</title>
 </head>
 <body>
-    <h2>Demo Integrasi Tool Universal</h2>
+    <h2>Extract Audio from Video</h2>
+    <input type="file" id="video-input" accept="video/*">
+    <button id="extract-btn" disabled>Extract MP3</button>
+    <p id="status-text">Select a video file to begin.</p>
 
-    <div id="dynamic-inputs"></div>
-
-    <button id="btn-process" disabled>Proses</button>
-
-    <div style="margin-top: 16px;">
-        <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
-        <p id="progress-text">Menunggu input...</p>
-    </div>
-
-    <pre id="log-box" class="log-box"></pre>
-
-    <!-- 1. Load library pendukung (jika tool membutuhkan FFmpeg) -->
+    <!-- 1. Load runtime dependency (FFmpeg WASM for video/audio tools) -->
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 
-    <!-- 2. Load script tool yang diinginkan -->
-    <script src="https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/video/video-compressor-tool.js"></script>
+    <!-- 2. Load the tool directly from CDN -->
+    <script src="https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/video/audio-extractor-tool.js"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const tool = window.VideoCompressorTool;
-            const container = document.getElementById('dynamic-inputs');
-            const btnProcess = document.getElementById('btn-process');
-            const progressFill = document.getElementById('progress-fill');
-            const progressText = document.getElementById('progress-text');
-            const logBox = document.getElementById('log-box');
+        const input = document.getElementById('video-input');
+        const btn = document.getElementById('extract-btn');
+        const status = document.getElementById('status-text');
 
-            const formValues = {};
+        let selectedFile = null;
+        input.addEventListener('change', (e) => {
+            selectedFile = e.target.files[0];
+            btn.disabled = !selectedFile;
+        });
 
-            // Render input kontrol berdasarkan tool.schema.inputs
-            tool.schema.inputs.forEach(inputDef => {
-                const group = document.createElement('div');
-                group.className = 'form-group';
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            status.textContent = 'Extracting audio...';
 
-                const label = document.createElement('label');
-                label.textContent = inputDef.label + (inputDef.required ? ' *' : '');
-                group.appendChild(label);
-                group.appendChild(document.createElement('br'));
+            // Access the tool registered on the window object
+            const tool = window.AudioExtractorTool || window.AppTools.get('tool-audio-extractor');
 
-                if (inputDef.type === 'file') {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = inputDef.accept || '*/*';
-                    input.onchange = (e) => {
-                        formValues[inputDef.name] = e.target.files[0];
-                        btnProcess.disabled = !formValues[inputDef.name];
-                    };
-                    group.appendChild(input);
-                } else if (inputDef.type === 'select' || inputDef.type === 'segmented') {
-                    const select = document.createElement('select');
-                    inputDef.options.forEach(opt => {
-                        const option = document.createElement('option');
-                        option.value = opt.value;
-                        option.textContent = opt.label;
-                        if (opt.value === inputDef.default) option.selected = true;
-                        select.appendChild(option);
-                    });
-                    formValues[inputDef.name] = select.value;
-                    select.onchange = (e) => { formValues[inputDef.name] = e.target.value; };
-                    group.appendChild(select);
-                }
-
-                container.appendChild(group);
-            });
-
-            // Eksekusi pemrosesan saat tombol ditekan
-            btnProcess.onclick = async () => {
-                btnProcess.disabled = true;
-                logBox.textContent = '';
-
-                const context = {
-                    onProgress: (percent, status) => {
-                        progressFill.style.width = percent + '%';
-                        progressText.textContent = `${percent}% - ${status}`;
-                    },
-                    onLog: (msg) => {
-                        logBox.textContent += msg + '\n';
-                        logBox.scrollTop = logBox.scrollHeight;
-                    }
-                };
-
-                try {
-                    const result = await tool.run(formValues, context);
-
-                    if (result.type === 'file') {
-                        // Otomatis download file hasil
-                        const url = URL.createObjectURL(result.data);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = result.filename;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        URL.revokeObjectURL(url);
-                        progressText.textContent = 'Selesai! File berhasil diunduh.';
-                    }
-                } catch (err) {
-                    alert('Gagal: ' + err.message);
-                    progressText.textContent = 'Error: ' + err.message;
-                } finally {
-                    btnProcess.disabled = false;
-                }
+            const inputs = {
+                videoFile: selectedFile
             };
+
+            const context = {
+                onProgress: (percent, statusText) => {
+                    status.textContent = `${percent}% - ${statusText}`;
+                },
+                onLog: (msg) => console.log('[Extractor Log]', msg)
+            };
+
+            try {
+                const result = await tool.run(inputs, context);
+
+                if (result.type === 'file') {
+                    // Trigger instant file download
+                    const url = URL.createObjectURL(result.data);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = result.filename || 'extracted_audio.mp3';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                    status.textContent = 'Done! MP3 downloaded successfully.';
+                }
+            } catch (err) {
+                status.textContent = `Error: ${err.message}`;
+            } finally {
+                btn.disabled = false;
+            }
         });
     </script>
 </body>
@@ -298,84 +112,141 @@ Berikut adalah implementasi lengkap cara memuat tool dan merender form input sec
 
 ---
 
-### Contoh Integrasi React
+### Method 2: Dynamic On-Demand Script Loader (Recommended)
+
+To keep your website initial page load lightning fast, fetch and load tool scripts only when the user selects or clicks a tool:
+
+```javascript
+/**
+ * Loads a tool dynamically from the openfishtools CDN.
+ * @param {string} toolRelativePath E.g. 'video/video-compressor-tool.js'
+ * @returns {Promise<Object>} The registered tool definition
+ */
+async function loadWebTool(toolRelativePath) {
+    const cdnBase = 'https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/';
+    const scriptUrl = cdnBase + toolRelativePath;
+
+    // Check if script is already present
+    let script = document.querySelector(`script[src="${scriptUrl}"]`);
+    if (!script) {
+        script = document.createElement('script');
+        script.src = scriptUrl;
+        script.async = true;
+        document.head.appendChild(script);
+
+        await new Promise((resolve, reject) => {
+            script.onload = resolve;
+            script.onerror = () => reject(new Error(`Failed to load tool script from ${scriptUrl}`));
+        });
+    }
+
+    // Tools automatically register to window.AppTools or named global window properties
+    const toolId = 'tool-' + toolRelativePath.split('/').pop().replace('-tool.js', '');
+    return (window.AppTools && window.AppTools.get(toolId)) || null;
+}
+
+// Example usage:
+const compressorTool = await loadWebTool('video/video-compressor-tool.js');
+console.log('Loaded tool:', compressorTool.title, compressorTool.version);
+```
+
+---
+
+### Method 3: React / Next.js Component
+
+Use this lightweight React component to execute any tool with zero backend setup:
 
 ```jsx
 import React, { useState, useEffect } from 'react';
 
-export function ToolRunner({ toolScriptUrl }) {
+export function UniversalToolRunner({ toolScriptPath }) {
     const [tool, setTool] = useState(null);
-    const [selectedFile, setSelectedFile] = useState(null);
+    const [file, setFile] = useState(null);
     const [progress, setProgress] = useState(0);
     const [status, setStatus] = useState('Idle');
     const [isProcessing, setIsProcessing] = useState(false);
 
     useEffect(() => {
+        let isMounted = true;
         const script = document.createElement('script');
-        script.src = toolScriptUrl;
+        script.src = `https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/${toolScriptPath}`;
+        script.async = true;
         script.onload = () => {
-            // Mengambil instance tool dari global window
-            setTool(window.VideoCompressorTool || window.AppTools?.getAll()?.[0]);
+            if (!isMounted) return;
+            // Get tool from AppTools registry or global window
+            const loaded = window.AppTools?.getAll()?.slice(-1)[0] || null;
+            setTool(loaded);
         };
         document.body.appendChild(script);
-        return () => { script.remove(); };
-    }, [toolScriptUrl]);
 
-    const handleRun = async () => {
-        if (!tool || !selectedFile) return;
+        return () => {
+            isMounted = false;
+            script.remove();
+        };
+    }, [toolScriptPath]);
+
+    const handleExecute = async () => {
+        if (!tool || !file) return;
         setIsProcessing(true);
 
         const inputs = {
-            videoFile: selectedFile,
-            preset: 'medium'
+            videoFile: file,
+            method: 'tbt',
+            compress: 'off'
         };
 
         const context = {
-            onProgress: (p, s) => {
-                setProgress(p);
-                setStatus(s);
+            onProgress: (percent, statusText) => {
+                setProgress(percent);
+                setStatus(statusText);
             },
-            onLog: (msg) => console.log('[Tool Log]', msg)
+            onLog: (msg) => console.log('[Tool]', msg)
         };
 
         try {
             const result = await tool.run(inputs, context);
             if (result.type === 'file') {
-                const url = URL.createObjectURL(result.data);
+                const downloadUrl = URL.createObjectURL(result.data);
                 const a = document.createElement('a');
-                a.href = url;
+                a.href = downloadUrl;
                 a.download = result.filename;
                 a.click();
-                URL.revokeObjectURL(url);
+                URL.revokeObjectURL(downloadUrl);
+                setStatus('Completed successfully!');
             }
         } catch (err) {
-            alert('Proses gagal: ' + err.message);
+            alert(`Process failed: ${err.message}`);
         } finally {
             setIsProcessing(false);
         }
     };
 
-    if (!tool) return <div>Memuat komponen tool...</div>;
+    if (!tool) return <div>Loading tool from CDN...</div>;
 
     return (
-        <div className="card">
-            <h3>{tool.title} (v{tool.version})</h3>
+        <div style={{ padding: 20, border: '1px solid #ccc', borderRadius: 8 }}>
+            <h3>{tool.title}</h3>
             <p>{tool.desc}</p>
 
             <input
                 type="file"
-                accept="video/*"
-                onChange={(e) => setSelectedFile(e.target.files[0])}
                 disabled={isProcessing}
+                onChange={(e) => setFile(e.target.files[0])}
             />
 
-            <button onClick={handleRun} disabled={!selectedFile || isProcessing}>
-                {isProcessing ? 'Memproses...' : 'Jalankan Tool'}
+            <button
+                disabled={!file || isProcessing}
+                onClick={handleExecute}
+                style={{ marginLeft: 12 }}
+            >
+                {isProcessing ? 'Processing...' : 'Run Tool'}
             </button>
 
             {isProcessing && (
-                <div>
-                    <div style={{ width: `${progress}%`, height: 4, background: '#0066cc' }} />
+                <div style={{ marginTop: 16 }}>
+                    <div style={{ background: '#eee', height: 8, borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ background: '#0066cc', height: '100%', width: `${progress}%`, transition: 'width 0.2s' }} />
+                    </div>
                     <p>{progress}% - {status}</p>
                 </div>
             )}
@@ -386,39 +257,184 @@ export function ToolRunner({ toolScriptUrl }) {
 
 ---
 
-## Katalog Tools
+## Browser Prerequisites (SharedArrayBuffer & WebAssembly)
 
-| Folder | File Tool | Deskripsi | Input Utama | Output |
+For multi-threaded WebAssembly execution (used by FFmpeg, RIFE Video Interpolation, and AI segmentation models), the browser requires Cross-Origin Isolation headers:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: credentialless
+```
+
+### Static Hosts Without Header Control (e.g., GitHub Pages)
+If your static hosting provider does not allow custom response headers, simply include `coi-serviceworker` in your document `<head>`:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/coi-serviceworker/coi-serviceworker.min.js"></script>
+```
+
+---
+
+## Tools Catalog & CDN Links
+
+All tools are simple, modular, and synced with the official web deployment.
+
+| Simple Name | Category | Tool ID | CDN Script Path | Description |
 |---|---|---|---|---|
-| `video/` | `video-compressor-tool.js` | Kompresi video MP4 berbasis WebAssembly libx264. | `videoFile`, `preset`, `threadMode` | MP4 File |
-| `video/` | `audio-extractor-tool.js` | Ekstraksi track audio MP3 lossy/lossless dari video. | `videoFile` | MP3 File |
-| `video/` | `image-sequence-tool.js` | Mengubah sekumpulan gambar dalam ZIP menjadi video. | `zipFile`, `fps`, `bitrate`, `audioFile` | MP4 File |
-| `video/` | `video-interpolation-tool.js` | AI Frame rate upscaler 2X/4X/8X menggunakan model RIFE v4.7 WebGPU. | `videoFile`, `multiplier` | MP4 File |
-| `converters/` | `ae-to-am-beatmark-tool.js` | Konversi keyframe marker After Effects ke format Alight Motion XML. | `file` (JSX), `title`, `fps` | XML File |
-| `converters/` | `fivemb-generator-tool.js` | Optimasi file Alight Motion XML menjadi di bawah 5MB dengan penggantian placeholder media. | `xmlFile`, `replaceMode` | XML File |
-| `tiktok/` | `tiktok-downloader-tool.js` | Download video TikTok HD tanpa watermark melalui API resolver. | `url` | MP4 File |
-| `tiktok/` | `tiktok-stats-tool.js` | Analisis metadata video TikTok (FPS riil, resolusi, bitrate stream, engagement rate, shadowban check). | `url` | Structured Data |
-| `tiktok/` | `tiktok-quality-tool.js` | Patcher header & container video (FISH, Binary, StreamShield, WMV, 60fps slowmo) agar tidak dikompresi server TikTok saat diupload. | `videoFile`, `method`, `compress` | MP4 File |
-| `ai/` | `rembg-tool.js` | Penghapus latar belakang gambar dan video menggunakan AI neural segmentation (MediaPipe, RVM, MODNet). | `file`, `model`, `bg`, `device` | PNG / WebP / MOV |
-| `ai/` | `upscale-tool.js` | AI super resolution dan shader filter enhancer (Cartoonist, Human Detail, Smooth Face) berbasis WebGL/WebGPU. | `file`, `preset`, `timing`, `normalise` | PNG / JPG / MP4 |
+| **Quality method** | TikTok | `tool-tiktok-patcher` | `tiktok/tiktok-quality-tool.js` | TikTok HQ upload patcher (FISH, Binary, StreamShield, FRY, 60fps conformer). |
+| **TikTok Downloader** | TikTok | `tool-tiktok-downloader` | `tiktok/tiktok-downloader-tool.js` | High-definition TikTok video downloader without watermark. |
+| **TikTok Statistics** | TikTok | `tool-tiktok-stats` | `tiktok/tiktok-stats-tool.js` | Real-time video metadata, stream bitrate, framerate, and engagement analytics. |
+| **Video Compressor** | Video | `tool-video-compressor` | `video/video-compressor-tool.js` | Pure client-side MP4/WebM compressor with custom size and resolution controls. |
+| **Audio Extractor** | Video | `tool-audio-extractor` | `video/audio-extractor-tool.js` | High-quality MP3 audio track extractor from video formats (MP4, MOV, WebM, MKV). |
+| **Image Sequence to Video** | Video | `tool-image-sequence` | `video/image-sequence-tool.js` | Converts ZIP archives of image frames into smooth MP4 videos with audio. |
+| **Video Interpolation** | Video / AI | `tool-video-interpolation` | `video/video-interpolation-tool.js` | AI frame interpolation (RIFE v4.7 via ONNX/WebGPU) for 2X / 4X smoother FPS. |
+| **Remove Background** | AI | `tool-rembg` | `ai/rembg-tool.js` | AI neural segmentation (MediaPipe, RVM, MODNet) for image and video backgrounds. |
+| **Qualitelio Enhancer** | AI | `tool-upscale-enhancer` | `ai/upscale-tool.js` | Super-resolution upscaler and real-time GPU shader enhancement filters. |
+| **AE to AM** | Converters | `tool-ae-am-beatmark` | `converters/ae-to-am-beatmark-tool.js` | Converts After Effects keyframe markers into Alight Motion XML project markers. |
+| **5MB XML Generator** | Converters | `tool-5mb-generator` | `converters/fivemb-generator-tool.js` | Optimizes Alight Motion XML files to under 5MB by swapping media placeholders. |
+
+> **Note on Quality method Helpers**:
+> When using `tiktok/tiktok-quality-tool.js`, the core patcher engines located in `method/` (`method/finalize.js`, `method/compress.js`, and `method/item/*.js`) are fetched dynamically from the CDN as needed.
 
 ---
 
-## Dependensi dan Resource Runtime
+## Tool Architecture & Runner API
 
-Tool yang menggunakan pemrosesan berat secara otomatis memuat dependensi runtime dari CDN secara dinamis jika belum tersedia di halaman:
+Each tool definition contains metadata, an input schema, and an executable runner:
 
-1. **FFmpeg WebAssembly**:
-   - `@ffmpeg/ffmpeg@0.12.10` dan `@ffmpeg/util@0.12.1`
-   - Mendukung akselerasi multi-thread (`@ffmpeg/core-mt`) jika `SharedArrayBuffer` dan `crossOriginIsolated` aktif, dengan fallback otomatis ke single-thread (`@ffmpeg/core`).
-2. **ONNX Runtime Web**:
-   - `onnxruntime-web` untuk eksekusi model AI (RIFE, MediaPipe, RVM, MODNet) via WebGPU / WebAssembly.
-3. **JSZip**:
-   - Digunakan oleh `image-sequence-tool` untuk membaca arsip ZIP gambar.
+```javascript
+{
+    id: 'tool-video-compressor',
+    version: '2.2.0',
+    title: 'Video Compressor',
+    desc: 'Compress video to custom quality and file sizes',
+    icon: 'compress',
+    category: ['Video', 'Tools'],
+
+    // 1. Declarative schema defining available parameters
+    schema: {
+        inputs: [
+            {
+                name: 'videoFile',
+                type: 'file',
+                label: 'Video File',
+                accept: 'video/*',
+                required: true
+            },
+            {
+                name: 'targetMb',
+                type: 'number',
+                label: 'Target Size (MB)',
+                default: 25,
+                min: 1,
+                max: 500
+            }
+        ]
+    },
+
+    // 2. Pure asynchronous execution function
+    run: async function(inputs, context) {
+        // inputs.videoFile -> File object
+        // inputs.targetMb -> 25
+        // context.onProgress(percent, statusText)
+        // context.onLog(message)
+
+        return {
+            type: 'file',
+            data: blob,
+            filename: 'compressed_video.mp4',
+            mimeType: 'video/mp4'
+        };
+    }
+}
+```
+
+### Context & Callbacks
+
+The `context` object passed to `tool.run(inputs, context)` accepts the following callbacks:
+
+```javascript
+const context = {
+    // Called when the execution progress changes (0 to 100)
+    onProgress: (percent, statusText) => {
+        console.log(`[Progress ${percent}%] ${statusText}`);
+    },
+
+    // Called when the tool emits technical log messages (FFmpeg stdout, ONNX steps)
+    onLog: (message) => {
+        console.log(`[Log] ${message}`);
+    },
+
+    // Called when preview data is ready (e.g. video cover image, audio waveform)
+    onPreview: (previewData) => {
+        console.log('[Preview]', previewData);
+    },
+
+    // Optional AbortSignal to cancel running processes
+    signal: abortController.signal
+};
+```
+
+### Standardized Output Formats
+
+#### 1. File Output (`type: 'file'`)
+Returned by encoders, patchers, converters, upscalers, and extractors:
+```javascript
+{
+    type: 'file',
+    data: Blob,                // Binary Blob object of rendered result
+    filename: 'output.mp4',    // Suggested filename
+    mimeType: 'video/mp4'      // MIME type
+}
+```
+
+#### 2. Structured Data Output (`type: 'data'`)
+Returned by analytical and scanner tools (e.g., TikTok Statistics):
+```javascript
+{
+    type: 'data',
+    data: {
+        preview: {
+            cover: 'https://...',
+            author: 'cutefishaep',
+            title: 'Cool Edit'
+        },
+        items: [
+            { label: 'Resolution', value: '1080 x 1920' },
+            { label: 'FPS', value: '60 fps' },
+            { label: 'Bitrate', value: '5.2 Mbps' }
+        ]
+    }
+}
+```
 
 ---
 
-## Lisensi
+## Declarative Input Schema Specification
 
-Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0).  
-Lihat file [LICENSE](LICENSE) untuk ketentuan lengkap penggunaan non-komersial dan atribusi.
+Tools define their inputs inside `tool.schema.inputs`. You can use this schema to auto-generate forms:
+
+| Input Type (`type`) | Additional Properties | Description |
+|---|---|---|
+| `file` | `accept`, `required`, `multiple` | File input / dropzone. Value is a browser `File` or `Blob`. |
+| `select` | `options: [{ label, value }]`, `default` | Standard dropdown select menu. |
+| `segmented` | `options: [{ label, value }]`, `default` | Segmented pill button group. |
+| `slider` | `min`, `max`, `step`, `unit`, `default` | Numeric slider input. |
+| `number` | `min`, `max`, `step`, `default` | Numeric number box input. |
+| `toggle` | `default: boolean` | Boolean switch on/off. |
+| `url` | `placeholder`, `validate: Function` | Text URL input with validation. |
+| `textarea` | `placeholder`, `rows`, `default` | Multi-line text input. |
+
+---
+
+## License
+
+This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International ([CC BY-NC 4.0](LICENSE)).
+
+You are free to:
+- **Share**: Copy and redistribute the material in any medium or format.
+- **Adapt**: Remix, transform, and build upon the material.
+
+Under the terms of:
+- **Attribution**: You must give appropriate credit to [OpenFishTools](https://github.com/openfishtools).
+- **NonCommercial**: You may not use the material for commercial purposes without prior permission.
