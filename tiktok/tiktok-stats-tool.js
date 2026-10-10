@@ -595,6 +595,7 @@
     const toolDefinition = {
         id: 'tool-tiktok-stats',
         _id: 'tool-tiktok-stats',
+        isTool: true,
         version: 'v1.1.5',
         title: 'TikTok Statistics',
         desc: 'Metadata & Stream Analyser',

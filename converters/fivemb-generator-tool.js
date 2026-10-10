@@ -465,6 +465,7 @@
     const toolDefinition = {
         id: 'tool-5mb-generator',
         _id: 'tool-5mb-generator',
+        isTool: true,
         version: '1.0.0',
         title: '5MB XML Generator',
         titleKey: 'tool_fivemb_title',
@@ -472,7 +473,7 @@
         descKey: 'tool_fivemb_desc',
         dropKey: 'tool_fivemb_drop',
         icon: 'folder_zip',
-        category: 'Tools',
+        category: ['Converters', 'Tools'],
         features: [
             'Interactive Layer Selector with Visual Filter Tabs',
             'Safe Placeholder Replacement (Zero Animation Loss)',

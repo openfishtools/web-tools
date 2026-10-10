@@ -422,6 +422,7 @@
     const toolDefinition = {
         id: 'tool-image-sequence',
         _id: 'tool-image-sequence',
+        isTool: true,
         version: '1.1.0',
         title: 'Image Sequence to Video',
         titleKey: 'tool_seq_title',
@@ -429,7 +430,7 @@
         descKey: 'tool_seq_desc',
         dropKey: 'tool_seq_drop',
         icon: 'video_file',
-        category: 'Tools',
+        category: ['Video', 'Tools'],
         features: [
             'Converts PNG, JPG, WebP, BMP frames inside ZIP',
             'Custom FPS (1 - 240 fps) & Bitrate controls',

@@ -764,11 +764,12 @@
     const toolDefinition = {
         id: 'tool-video-compressor',
         _id: 'tool-video-compressor',
+        isTool: true,
         version: '2.2.0',
         title: 'Video Compressor',
         desc: 'Compress video to custom quality and file sizes',
         icon: 'compress',
-        category: 'Tools',
+        category: ['Video', 'Tools'],
         features: [
             'H.264 & H.265 (HEVC) Codecs',
             'Fast (H.264), Normal (HEVC), & Slow (Deep Tuned)',

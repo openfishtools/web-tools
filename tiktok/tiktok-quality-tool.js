@@ -1597,11 +1597,12 @@
     const toolDefinition = {
         id: 'tool-tiktok-patcher',
         _id: 'tool-tiktok-patcher',
+        isTool: true,
         version: '3.7.0',
         title: 'Quality Method',
         desc: 'TikTok HQ Upload',
         icon: 'high_quality',
-        category: 'TikTok',
+        category: ['TikTok', 'Tools'],
         features: [
             'F R Y Patch',
             'Binary Patch (Classic 0.2.0)',

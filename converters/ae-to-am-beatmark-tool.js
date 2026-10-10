@@ -315,6 +315,7 @@
     const toolDefinition = {
         id: 'tool-ae-am-beatmark',
         _id: 'tool-ae-am-beatmark',
+        isTool: true,
         version: '1.0.0',
         title: 'AE to AM',
         titleKey: 'tool_ae_am_title',
@@ -322,7 +323,7 @@
         descKey: 'tool_ae_am_desc',
         dropKey: 'tool_ae_am_drop',
         icon: 'music_note',
-        category: 'Tools',
+        category: ['Converters', 'Tools'],
         features: [
             'Auto Hex `ldat` Marker Extraction',
             'Multi-composition detection & resolution parser',

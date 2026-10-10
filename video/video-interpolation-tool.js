@@ -505,6 +505,7 @@
     const toolDefinition = {
         id: 'tool-video-interpolation',
         _id: 'tool-video-interpolation',
+        isTool: true,
         version: '1.0.3',
         title: 'Video Interpolation',
         titleKey: 'tool_interp_title',
@@ -512,7 +513,7 @@
         descKey: 'tool_interp_desc',
         dropKey: 'tool_interp_drop',
         icon: 'motion_photos_on',
-        category: 'Tools',
+        category: ['Video', 'AI', 'Tools'],
         features: [
             '2X, 4X, & 8X Motion-Compensated Frame Generation',
             'AI Optical Flow & Motion Vector Processing',

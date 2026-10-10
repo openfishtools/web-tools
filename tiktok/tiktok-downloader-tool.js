@@ -202,6 +202,7 @@
     const toolDefinition = {
         id: 'tool-tiktok-downloader',
         _id: 'tool-tiktok-downloader',
+        isTool: true,
         version: 'v1.0.3',
         title: 'TikTok Downloader',
         desc: 'Powered By TikWm - Download HD Video',

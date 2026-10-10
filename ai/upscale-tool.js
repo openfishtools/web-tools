@@ -1872,6 +1872,7 @@
     const toolDefinition = {
         id: 'tool-upscale-enhancer',
         _id: 'tool-upscale-enhancer',
+        isTool: true,
         version: '1.3.0',
         title: 'Qualitelio Enhancer',
         titleKey: 'tool_upscale_title',
@@ -1879,7 +1880,7 @@
         descKey: 'tool_upscale_desc',
         dropKey: 'tool_upscale_drop',
         icon: 'auto_awesome',
-        category: 'Tools',
+        category: ['AI', 'Tools'],
         features: [
             'Cartoonist, Human Detail & Smooth Face Presets',
             'GPU-Accelerated WebGL/WebGPU Shader Filters',

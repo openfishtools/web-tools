@@ -1774,6 +1774,7 @@
     const toolDefinition = {
         id: 'tool-remove-background',
         _id: 'tool-remove-background',
+        isTool: true,
         version: '1.5.0',
         title: 'Remove Background',
         titleKey: 'tool_rembg_title',
@@ -1781,7 +1782,7 @@
         descKey: 'tool_rembg_desc',
         dropKey: 'tool_rembg_drop',
         icon: 'person_remove',
-        category: 'Tools',
+        category: ['AI', 'Tools'],
         hideDropOnUpload: true,
         features: [
             'AI Neural Segmentation (RVM & Selfie Matting)',

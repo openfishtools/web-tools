@@ -264,6 +264,7 @@
     const toolDefinition = {
         id: 'tool-audio-extractor',
         _id: 'tool-audio-extractor',
+        isTool: true,
         version: '1.0.0',
         title: 'Audio Extractor',
         titleKey: 'tool_audio_extractor_title',
@@ -271,7 +272,7 @@
         descKey: 'tool_audio_extractor_desc',
         dropKey: 'tool_audio_extractor_drop',
         icon: 'audiotrack',
-        category: 'Tools',
+        category: ['Video', 'Tools'],
         features: [
             'High Quality MP3 (192 kbps, LAME encoder)',
             'Supports MP4, MOV, WebM, MKV, AVI, FLV',
