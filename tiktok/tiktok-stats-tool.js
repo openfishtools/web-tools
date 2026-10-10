@@ -600,7 +600,7 @@
                             { label: t('stats_bitrate') || 'Bitrate', value: finalBitrateStr },
                             { label: t('stats_duration') || 'Duration', value: finalDuration ? `${finalDuration}s` : '—' },
                             { label: t('stats_size') || 'Size', value: finalSize ? `${(finalSize / (1024 * 1024)).toFixed(2)} MB` : '—' },
-                            { label: t('stats_method') || 'Method', value: (videoMeta && videoMeta.comment ? videoMeta.comment.trim() : '—') },
+                            { label: t('stats_method') || 'method', value: (videoMeta && videoMeta.comment ? videoMeta.comment.trim() : '—') },
                             { label: t('stats_views') || 'Views', value: formatNumber(playCount) },
                             { label: t('stats_likes') || 'Likes', value: formatNumber(diggCount) },
                             { label: t('stats_comments') || 'Comments', value: formatNumber(commentCount) },

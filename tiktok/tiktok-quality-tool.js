@@ -869,7 +869,7 @@
                 else if (rawTag === 'codec') { icon = 'memory'; label = 'Codec'; }
                 else if (rawTag === 'mode') { icon = 'tune'; label = 'Mode'; }
                 else if (rawTag === 'resolution' || rawTag === 'res') { icon = 'aspect_ratio'; label = isEn ? 'Resolution' : 'Resolusi'; }
-                else if (rawTag === 'method') { icon = 'verified'; label = isEn ? 'Method' : 'Metode'; }
+                else if (rawTag === 'method') { icon = 'verified'; label = isEn ? 'method' : 'metode'; }
                 else if (rawTag === 'fps' || rawTag === 'framerate') { icon = 'speed'; label = 'Framerate'; }
                 items.push({ icon, label, value: content });
             }
@@ -1409,14 +1409,14 @@
             window.ToolProgressManager.set('tool-tiktok-patcher', { isProcessing: true, percent: 0, status: t('status_initializing'), file });
         }
 
-        logSection('Quality Method — Initializing');
+        logSection('Quality method — Initializing');
         log(`  File : ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
         let methodLogName = currentVersion.toUpperCase();
         if (currentVersion === 'v3') methodLogName = 'F R Y';
         else if (currentVersion === 'binary') methodLogName = 'BINARY';
         else if (currentVersion === 'fps') methodLogName = 'FPS';
         else if (currentVersion === 'tbt' || currentVersion === 'fish') methodLogName = 'FISH';
-        log(`  Method : ${methodLogName}`);
+        log(`  method : ${methodLogName}`);
 
         // Effective compress mode calculation
         let effectiveCompressMode = compressMode;
@@ -1488,7 +1488,7 @@
                 }
             }
         } catch (err) {
-            console.error('Quality Method Error:', err);
+            console.error('Quality method Error:', err);
             log(`\n!! Error: ${err.message}`);
             if (progressStatus) progressStatus.textContent = `Error: ${err.message}`;
             if (typeof window.showToast === 'function') window.showToast(`Error: ${err.message}`);
@@ -1608,7 +1608,7 @@
         _id: 'tool-tiktok-patcher',
         isTool: true,
         version: '3.7.0',
-        title: 'Quality Method',
+        title: 'Quality method',
         desc: 'TikTok HQ Upload',
         icon: 'high_quality',
         category: ['TikTok', 'Tools'],
@@ -1639,7 +1639,7 @@
                     id: 'method',
                     name: 'method',
                     type: 'segmented',
-                    label: 'Method',
+                    label: 'method',
                     labelKey: 'patcher_cat_quality_method',
                     default: 'tbt',
                     options: [
