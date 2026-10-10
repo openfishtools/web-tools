@@ -1,6 +1,6 @@
 # Experimental research folder (local-only research pipeline & credentials)
-tools/experimental/
-tools/Experiment/
+experimental/
+Experiment/
 **/experimental/
 **/Experiment/
 
