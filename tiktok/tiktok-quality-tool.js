@@ -1638,6 +1638,7 @@
                     name: 'method',
                     type: 'segmented',
                     label: 'Quality Method',
+                    labelKey: 'patcher_cat_quality_method',
                     default: 'tbt',
                     options: [
                         { label: 'FISH (v2)', value: 'tbt' },
@@ -1652,6 +1653,7 @@
                     name: 'compress',
                     type: 'segmented',
                     label: 'Resolution / Compress',
+                    labelKey: 'patcher_compress_title',
                     default: 'off',
                     options: [
                         { label: 'Original (Off)', value: 'off' },
