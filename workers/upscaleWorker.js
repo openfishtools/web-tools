@@ -1,4 +1,9 @@
 importScripts("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js");
+try {
+  importScripts("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@4.22.0/dist/tf-backend-cpu.js");
+} catch (e) {
+  console.warn("Could not import tfjs-backend-cpu fallback:", e);
+}
 
 class WorkerImage {
   constructor(width, height, data = new Uint8Array(width * height * 4)) {
@@ -192,10 +197,27 @@ self.addEventListener("message", async (e) => {
       safeSetFlag('WEBGL_PACK_IMAGE_OPERATIONS', true);
       safeSetFlag('WEBGL_LAZILY_UNPACK', true);
 
-      if (!(await tf.setBackend(data?.backend || "webgl"))) {
+      let backendSelected = false;
+      const targetBackend = data?.backend || "webgl";
+      try {
+        backendSelected = await tf.setBackend(targetBackend);
+      } catch (beErr) {
+        console.warn(`[UpscaleWorker] Failed to set ${targetBackend} backend:`, beErr);
+      }
+
+      if (!backendSelected) {
+        try {
+          console.warn("[UpscaleWorker] Falling back to CPU backend in worker...");
+          backendSelected = await tf.setBackend("cpu");
+        } catch (cpuErr) {
+          console.error("[UpscaleWorker] Failed to set CPU backend fallback:", cpuErr);
+        }
+      }
+
+      if (!backendSelected) {
         self.postMessage({
-          alertmsg: `${data?.backend} backend is not supported or initialized in your browser.`,
-          info: `Error: ${data?.backend} not supported.`
+          alertmsg: `${targetBackend} backend is not supported or initialized in your browser.`,
+          info: `Error: ${targetBackend} not supported.`
         });
         return;
       }

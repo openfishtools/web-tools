@@ -167,9 +167,12 @@
             this.isReady=false;
         }
         async init(onLog){
-            if(!navigator.gpu) throw new Error('WebGPU not supported');
-            const adapter=await navigator.gpu.requestAdapter(); if(!adapter) throw new Error('GPU adapter failed');
-            this.device=await adapter.requestDevice();
+            if (navigator.gpu) {
+                try {
+                    const adapter = await navigator.gpu.requestAdapter();
+                    if (adapter) this.device = await adapter.requestDevice();
+                } catch (_) {}
+            }
             onLog('[RIFE] Loading RIFE model...');
             const localModelUrl='ai/models/rife47_ensemble_True_scale_1_sim.onnx';
             const cdnBase = window.TOOLS_CDN_BASE || 'https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/';
@@ -191,8 +194,21 @@
                 if (typeof window.ensureOnnxRuntime !== 'function') throw new Error('ONNX Runtime failed to load.');
                 await window.ensureOnnxRuntime();
             }
-            if (typeof ort !== 'undefined' && ort.env) try{ ort.env.logLevel = 'error'; }catch(e){}
-            try{ this.session=await ort.InferenceSession.create(modelBuffer.slice(0),{executionProviders:[{name:'webgpu',powerPreference:'high-performance'},'wasm'],graphOptimizationLevel:'all'}); }catch(e){ onLog('[RIFE] WebGPU failed, fallback WASM'); this.session=await ort.InferenceSession.create(modelBuffer.slice(0),{executionProviders:['wasm'],graphOptimizationLevel:'all'}); }
+            const epList = this.device
+                ? [{ name: 'webgpu', powerPreference: 'high-performance' }, 'wasm']
+                : ['wasm'];
+            try {
+                this.session = await ort.InferenceSession.create(modelBuffer.slice(0), {
+                    executionProviders: epList,
+                    graphOptimizationLevel: 'all'
+                });
+            } catch (e) {
+                onLog('[RIFE] Primary provider failed, fallback WASM');
+                this.session = await ort.InferenceSession.create(modelBuffer.slice(0), {
+                    executionProviders: ['wasm'],
+                    graphOptimizationLevel: 'all'
+                });
+            }
             this.isReady=true; onLog('[RIFE] RIFE v4.7 ready');
         }
         async interpolate(srcCanvas0, srcCanvas1, progressVal, outCanvas){
@@ -273,23 +289,29 @@
         if (navigator.gpu) {
             try { const adapter = await navigator.gpu.requestAdapter(); if (adapter) hasWebGPU = true; } catch(e) {}
         }
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise(r => setTimeout(r, 400));
         if (gpuDot) {
             gpuDot.classList.remove('upscale-spinner');
-            if (hasWebGPU) { gpuDot.textContent = 'check_circle'; gpuDot.style.color = '#4CAF50'; if (gpuStatus) gpuStatus.textContent = t('interp_ready_gpu') || 'WebGPU: Available'; }
-            else { gpuDot.textContent = 'cancel'; gpuDot.style.color = '#F44336'; if (gpuStatus) gpuStatus.textContent = t('interp_failed_gpu') || 'WebGPU: Not Available'; }
+            if (hasWebGPU) {
+                gpuDot.textContent = 'check_circle';
+                gpuDot.style.color = '#4CAF50';
+                if (gpuStatus) gpuStatus.textContent = t('interp_ready_gpu') || 'WebGPU: Available (High Speed)';
+            } else {
+                gpuDot.textContent = 'info';
+                gpuDot.style.color = '#FF9800';
+                if (gpuStatus) gpuStatus.textContent = t('interp_fallback_gpu') || 'WebGPU unavailable: Using CPU WASM mode';
+            }
         }
-        if (!hasWebGPU) {
-            await new Promise(r => setTimeout(r, 3000));
-            const closeBtn = document.getElementById('tool-modal-close-btn');
-            if (closeBtn) closeBtn.click();
-            return;
-        }
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 400));
         if (checkingScreen) checkingScreen.classList.add('hidden');
         if (mainContent) mainContent.classList.remove('hidden');
         const pb = document.getElementById('tool-process-btn');
-        if (pb) { pb.disabled = false; pb.dataset.state = 'ready'; const pl = document.getElementById('tool-process-label'); if (pl) pl.textContent = t('tool_interp_btn') || 'Interpolate Video'; }
+        if (pb) {
+            pb.disabled = false;
+            pb.dataset.state = 'ready';
+            const pl = document.getElementById('tool-process-label');
+            if (pl) pl.textContent = t('tool_interp_btn') || 'Interpolate Video';
+        }
         if (typeof window.updateOpenModalsLayout === 'function') window.updateOpenModalsLayout(true);
     }
 
