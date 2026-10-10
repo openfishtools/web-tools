@@ -7,6 +7,7 @@
   **Pure client-side video processing, AI vision, media analytics, and animation conversion libraries.**
 
   [![Version: 1.0.0](https://img.shields.io/badge/version-1.0.0-9DFF00.svg)](README.md)
+  [![Category: Web App](https://img.shields.io/badge/category-Web_App-blue.svg)](#)
   [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](LICENSE)
 
 </div>
