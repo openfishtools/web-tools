@@ -1,9 +1,17 @@
-# OpenFishTools Web Tools
+<div align="center">
 
-[![Version: 1.0.0](https://img.shields.io/badge/version-1.0.0-9DFF00.svg)](README.md)
-[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](LICENSE)
+  <img src="https://raw.githubusercontent.com/openfishtools/.github/main/profile/assets/projects/web-tools.svg" width="96" height="96" alt="Web Tools" />
 
-A collection of pure client-side video processing, AI vision, media analytics, and animation conversion libraries for modern web browsers.
+  # Web Tools
+
+  **Pure client-side video processing, AI vision, media analytics, and animation conversion libraries.**
+
+  [![Version: 1.0.0](https://img.shields.io/badge/version-1.0.0-9DFF00.svg)](README.md)
+  [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](LICENSE)
+
+</div>
+
+---
 
 All tools in this repository follow a **Universal, Headless, Schema-Driven** architecture:
 - **Zero DOM Lock-in**: Tools do not enforce any specific HTML structure or DOM IDs. You can build your own custom UI using React, Vue, Svelte, Tailwind, Bootstrap, or plain Vanilla HTML/CSS.
