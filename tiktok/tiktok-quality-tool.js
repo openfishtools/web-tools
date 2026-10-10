@@ -1627,6 +1627,7 @@
         schema: {
             inputs: [
                 {
+                    id: 'videoFile',
                     name: 'videoFile',
                     type: 'file',
                     label: 'Video File',
@@ -1635,6 +1636,7 @@
                     required: true
                 },
                 {
+                    id: 'method',
                     name: 'method',
                     type: 'segmented',
                     label: 'Quality Method',
@@ -1650,6 +1652,7 @@
                     ]
                 },
                 {
+                    id: 'compress',
                     name: 'compress',
                     type: 'segmented',
                     label: 'Resolution / Compress',
@@ -1668,7 +1671,7 @@
             if (window._tktk) window._tktk.activeContext = context;
             window._lastFinalizedPatcherResult = null;
             try {
-                const file = inputs.videoFile || inputs.file;
+                const file = (inputs && (inputs.videoFile || inputs.file)) || selectedFile;
                 if (!file) throw new Error('Video file is required');
                 currentVersion = inputs.method || 'tbt';
                 compressMode = inputs.compress || 'off';
