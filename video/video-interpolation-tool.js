@@ -178,17 +178,35 @@
             const cdnBase = window.TOOLS_CDN_BASE || 'https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/';
             const hfBase = window.HF_RESOURCE_BASE || 'https://huggingface.co/cutefishae/resource-cutefish/resolve/main';
             const remoteUrls=[
-                cdnBase + 'ai/models/rife47_ensemble_True_scale_1_sim.onnx',
-                localModelUrl,
-                'assets/models/rife47_ensemble_True_scale_1_sim.onnx',
                 `${hfBase}/models/rife47_ensemble_True_scale_1_sim.onnx`,
+                'https://huggingface.co/cutefishae/resource-cutefish/resolve/main/models/rife47_ensemble_True_scale_1_sim.onnx',
                 'https://huggingface.co/yuvraj108c/rife-onnx/resolve/main/rife47_ensemble_True_scale_1_sim.onnx',
-                'https://hf-mirror.com/yuvraj108c/rife-onnx/resolve/main/rife47_ensemble_True_scale_1_sim.onnx'
+                'https://hf-mirror.com/yuvraj108c/rife-onnx/resolve/main/rife47_ensemble_True_scale_1_sim.onnx',
+                localModelUrl,
+                'assets/models/rife47_ensemble_True_scale_1_sim.onnx'
             ];
             let modelBuffer=null;
             const cacheName='chros-offline-assets-v1'; let cache=null; if('caches' in window) try{cache=await caches.open(cacheName);}catch(e){}
             if(cache){ try{ const full=new URL(localModelUrl,window.location.origin).href; const m=await cache.match(full)||await cache.match(localModelUrl); if(m){ onLog('[RIFE] Loading from offline cache...'); modelBuffer=await m.arrayBuffer(); } }catch(e){} }
-            if(!modelBuffer){ for(const u of remoteUrls){ try{ onLog('[RIFE] Fetching RIFE model from HuggingFace...'); const r=await fetch(u); if(r.ok){ modelBuffer=await r.arrayBuffer(); if(cache){ try{ const full=new URL(localModelUrl,window.location.origin).href; const cr=new Response(modelBuffer.slice(0),{headers:{'Content-Type':'application/octet-stream'}}); await cache.put(full,cr.clone()); await cache.put(localModelUrl,cr);}catch(e){} } break; } }catch(e){} } }
+            if(!modelBuffer){
+                for(const u of remoteUrls){
+                    try{
+                        onLog('[RIFE] Fetching RIFE model from CDN...');
+                        const r=await fetch(u);
+                        if(r.ok){
+                            const buf = await r.arrayBuffer();
+                            if (buf && buf.byteLength > 1000000) {
+                                const head = new TextDecoder().decode(new Uint8Array(buf.slice(0, 40)));
+                                if (!head.startsWith('File size exceeded') && !head.startsWith('<!DOCTYPE') && !head.startsWith('{')) {
+                                    modelBuffer = buf;
+                                    if(cache){ try{ const full=new URL(localModelUrl,window.location.origin).href; const cr=new Response(modelBuffer.slice(0),{headers:{'Content-Type':'application/octet-stream'}}); await cache.put(full,cr.clone()); await cache.put(localModelUrl,cr);}catch(e){} }
+                                    break;
+                                }
+                            }
+                        }
+                    }catch(e){}
+                }
+            }
             if(!modelBuffer) throw new Error('Failed to load RIFE model');
             if (typeof ort === 'undefined' || !ort.InferenceSession) {
                 if (typeof window.ensureOnnxRuntime !== 'function') throw new Error('ONNX Runtime failed to load.');
