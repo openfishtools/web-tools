@@ -596,7 +596,7 @@
         init() {
             if (this.ready) return true;
             try {
-                this.worker = new Worker('assets/upscale/upscaleWorker.js?v=4');
+                this.worker = new Worker('assets/upscale/upscaleWorker.js?v=5');
                 this.worker.addEventListener('message', (e) => {
                     const { progress, done, output, alertmsg, info } = e.data;
                     if (info && this.infoHandler) this.infoHandler(info);
