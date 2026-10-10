@@ -434,10 +434,11 @@ Tools define their inputs inside `tool.schema.inputs`. You can use this schema t
 
 This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International ([CC BY-NC 4.0](LICENSE)).
 
-You are free to:
-- **Share**: Copy and redistribute the material in any medium or format.
-- **Adapt**: Remix, transform, and build upon the material.
-
-Under the terms of:
-- **Attribution**: You must give appropriate credit to [OpenFishTools](https://github.com/openfishtools).
-- **NonCommercial**: You may not use the material for commercial purposes without prior permission.
+### Summary
+- **Do**:
+  - Share, copy, and redistribute the tool scripts in any medium or format.
+  - Adapt, remix, and build upon the tools for non-commercial projects.
+  - Give appropriate credit and link to [OpenFishTools](https://github.com/openfishtools).
+- **Don't**:
+  - Use the tools or code for commercial purposes without prior permission.
+  - Apply legal terms or tech restrictions preventing others from permitted use.
