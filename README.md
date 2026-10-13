@@ -308,6 +308,12 @@ All tools are simple, modular, and synced with the official web deployment.
 > **Note on Quality method Helpers**:
 > When using `tiktok/tiktok-quality-tool.js`, the core patcher engines located in `method/` (`method/finalize.js`, `method/compress.js`, and `method/item/*.js`) are fetched dynamically from the CDN as needed.
 
+### 🧪 Research & Method Development (`create-method/`)
+
+The [`create-method/`](create-method/README.md) directory is a research and automated testing environment for creating, experimenting with, and validating new MP4 box/atom bypass algorithms (such as `FishV2` and `StreamShield`):
+- **Automated Verification Pipeline**: Encodes test videos, automatically uploads them to TikTok via Zernio API, and measures live stream resolution, FPS, and bitrate directly from ByteDance's CDN (`v16m.tiktokcdn.com`).
+- **AI Collaboration Guide**: Includes step-by-step instructions on prompting AI assistants to invent new patchers, plus historical research logs in [`create-method/agen.md`](create-method/agen.md).
+
 ---
 
 ## Tool Architecture & Runner API
