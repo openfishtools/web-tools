@@ -293,7 +293,7 @@ All tools are simple, modular, and synced with the official web deployment.
 
 | Simple Name | Category | Tool ID | CDN Script Path | Description |
 |---|---|---|---|---|
-| **Quality method** | TikTok | `tool-tiktok-patcher` | `tiktok/tiktok-quality-tool.js` | TikTok HQ upload patcher (FISH, Binary, StreamShield, FRY, 60fps conformer). |
+| **Quality method** | TikTok | `tool-tiktok-patcher` | `tiktok/tiktok-quality-tool.js` | TikTok HQ upload patcher (FISH, FPS, WMV, 60fps conformer). |
 | **TikTok Downloader** | TikTok | `tool-tiktok-downloader` | `tiktok/tiktok-downloader-tool.js` | High-definition TikTok video downloader without watermark. |
 | **TikTok Statistics** | TikTok | `tool-tiktok-stats` | `tiktok/tiktok-stats-tool.js` | Real-time video metadata, stream bitrate, framerate, and engagement analytics. |
 | **Video Compressor** | Video | `tool-video-compressor` | `video/video-compressor-tool.js` | Pure client-side MP4/WebM compressor with custom size and resolution controls. |

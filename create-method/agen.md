@@ -80,6 +80,7 @@ create-method/
 └── result/                     # Folder kumpulan method
     ├── fishV3.js               # ACTIVE WORKING METHOD (FishV3)
     └── Patched/                # Arsip method yang sudah ke-patch oleh ByteDance
+        ├── binary.js           # Legacy Binary Patcher (Patched / Deprecated)
         ├── fishV2.js           # Legacy FishV2 (Patched)
         └── streamshield.js     # Legacy StreamShield / FishV1 (Patched)
 ```
@@ -94,10 +95,10 @@ Berikut data empiris dari hasil pengujian nyata terhadap pipeline server ByteDan
 | :---: | :--- | :--- | :--- :---: | :---: | :---: | :---: | :---: |
 | 1 | **`remux`** | Plain MP4 Faststart Stream Copy | 576 x 1024 | 30 FPS | 2.76 Mbps | 5.92 MB | ❌ **GAGAL** (Dikompresi ke SD) |
 | 2 | **`quicktime`** | Apple QuickTime (`.mov`) Faststart | 576 x 1024 | 30 FPS | 2.76 Mbps | 5.92 MB | ❌ **GAGAL** (Dikompresi ke SD) |
-| 3 | **`binary`** | Old Binary Patcher (Dual Audio x9 Fake Samples) | 1080 x 1920 | 60 FPS | 23.97 Mbps | 51.44 MB | 🏆 **SUKSES** (Tapi bloat sample audio) |
+| 3 | **`binary`** | Old Binary Patcher (`binary.js` - Dual Audio x9 Fake Samples) | 1080 x 1920 | 60 FPS | 23.97 Mbps | 51.44 MB | ❌ **PATCHED / DEPRECATED** (Sudah tidak berfungsi) |
 | 4 | **`vbr-target`** | VBR Spoof (32-bit `mvhd` Duration to 1.8M) | 576 x 1024 | 30 FPS | 2.76 Mbps | 5.92 MB | ❌ **GAGAL** (Durasi finite tetap ditranscode) |
-| 5 | **`stream-shield`** | **Cutefish StreamShield (`streamshield.js.patched`)** | 1080 x 1920 | 60 FPS | 23.93 Mbps | 51.34 MB | ❌ **PATCHED** (FISH v1: 3-Track Micro-Shield) |
-| 6 | **`fish-v2`** | **Cutefish FishV2 (`fishV2.js.patched`)** | 1080 x 1920 | 60.05 FPS | 23.93 Mbps | 51.34 MB | ❌ **PATCHED** (FISH v2: Murni 2-Track, In-Track Zero-Delta) |
+| 5 | **`stream-shield`** | **Cutefish StreamShield (`streamshield.js`)** | 1080 x 1920 | 60 FPS | 23.93 Mbps | 51.34 MB | ❌ **PATCHED** (FISH v1: 3-Track Micro-Shield) |
+| 6 | **`fish-v2`** | **Cutefish FishV2 (`fishV2.js`)** | 1080 x 1920 | 60.05 FPS | 23.93 Mbps | 51.34 MB | ❌ **PATCHED** (FISH v2: Murni 2-Track, In-Track Zero-Delta) |
 | 7 | **`fish-v3`** | **NEW: Cutefish FishV3 (`fishV3.js`)** | **1080 x 1920** | **60.055 FPS** | **17.69 Mbps** | **37.97 MB** | 🏆🏆 **ULTIMATE WINNER** (FISH v3: Rescaled 48k Clock + Zero-Offset CTTS + Track 3 Trap) |
 
 ---

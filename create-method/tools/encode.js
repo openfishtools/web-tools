@@ -84,16 +84,12 @@ async function encodeVideo(inputFile, method, outputFile) {
 
     if (method === 'binary') {
         global.window = global;
-        const p1 = path.join(ROOT_DIR, '../method/item/binary.js');
-        const p2 = path.join(ROOT_DIR, '../method/item/binarypatch.js');
-        if (fs.existsSync(p1)) require(p1);
-        else if (fs.existsSync(p2)) require(p2);
-        else throw new Error('binary.js not found in ../method/item/');
+        require(resolveMethodModule('binary.js'));
         const inBuffer = fs.readFileSync(inputFile);
         const arrayBuf = inBuffer.buffer.slice(inBuffer.byteOffset, inBuffer.byteOffset + inBuffer.byteLength);
         const patched = global.window.patchMp4BinaryMethod(arrayBuf);
         fs.writeFileSync(outputFile, Buffer.from(patched));
-        console.log(`[Encode] binary: ${outputFile}`);
+        console.log(`[Encode] binary (patched/deprecated): ${outputFile}`);
         return getFfprobeMeta(outputFile);
     }
 
