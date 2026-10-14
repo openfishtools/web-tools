@@ -426,105 +426,81 @@ function _v3_patchMp4FPS(inputData, _logFn) {
     return patchResultStats;
 }
 
-function _v3_patchMp4FPSMethod(inputBuffer) {
-    const result = _v3_patchMp4FPS(inputBuffer, null);
+function _v3_patchMp4FPSMethod(inputBuffer, logFn) {
+    const result = _v3_patchMp4FPS(inputBuffer, logFn || null);
     return result.output;
 }
 window.patchMp4FPSMethod = _v3_patchMp4FPSMethod;
 
-window.processVideoFPS = async function processVideoFPS(file, mode) {
-    if (mode === undefined) mode = 'off';
-    const s = window._tktk;
-    s.isProcessing = true;
-
-    const isOff    = mode === 'off';
-    const safeName = s.escapeHTML(file.name);
-
-    if (s.btnStart) s.btnStart.disabled = true;
-    if (s.progressContainer) s.progressContainer.classList.remove('hidden');
-    if (s.logsContainer) s.logsContainer.classList.remove('hidden');
-    const dlBtn = document.getElementById('tool-download-btn');
-    if (dlBtn) dlBtn.classList.add('hidden');
-    s.statusText.innerHTML = `<span style="color: var(--md-sys-color-primary);">${window.getTranslation('status_loading_engine')}</span>`;
-    s.progressFill.style.width = '0%';
-    s.progressPercent.textContent = '0%';
-    s.progressText.textContent = 'Processing FPS...';
-
-    const modeLabel = isOff ? 'Direct Pass-Through (OFF)' : (mode === '720p' ? 'HD 720p Compress + Patch' : 'Full HD 1080p Compress + Patch');
-    s.logSection('FPS PROCESSING');
-    s.log(`  File   : ${safeName}`);
-    s.log(`  Mode   : ${modeLabel}`);
-    s.logEnd();
-
-    if (isOff) {
-        s.log(`  [1/2] Executing Pure JS FPS Patch...`);
-        try {
-            const patchedBytes = _v3_patchMp4FPSMethod(s.currentFileBuffer);
-            s.log(`  [2/2] Finalizing output package...`);
-            const finalizeFn = window.finalizePatcherDownload || (s && s.finalizePatcherDownload);
-            if (typeof finalizeFn === 'function') {
-                finalizeFn(file, patchedBytes, 'hd');
-            } else {
-                const blob     = new Blob([patchedBytes], { type: 'video/mp4' });
-                const url      = URL.createObjectURL(blob);
-                const filename = `${file.name.replace(/\.[^.]+$/, '')}_hd.mp4`;
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }
-            return;
-        } catch (jsErr) {
-            s.log(`  [Error] Pure JS patch failed: ${jsErr.message}`);
-            throw jsErr;
-        }
+(window.TikTokMethods = window.TikTokMethods || {
+    _items: [],
+    register(m) {
+        const i = this._items.findIndex(x => x.id === m.id);
+        if (i >= 0) this._items[i] = m; else this._items.push(m);
+        this._items.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
     }
-
-    try {
-        const compressFn = window.compressVideo || (s && s.compressVideo);
-        if (typeof compressFn !== 'function') {
-            throw new Error('Compression module (compress.js) is not loaded.');
+}).register({
+    id: 'fps',
+    name: 'FPS',
+    category: 'backup',
+    order: 1,
+    supportsCompress: true,
+    remuxFaststart: false,
+    requiresUserscript: false,
+    handlesOwn60FpsSlowmo: true,
+    outputOptions: 'hd',
+    descriptions: {
+        id: {
+            off: `
+                [format] .mp4
+                [mode] Direct Pass-Through
+                [framerate] 30 FPS Presentation Patch
+                [info] Video akan terlihat slow motion di galeri offline, namun otomatis berjalan mulus (smooth 60 FPS) saat diunggah ke TikTok.
+                [warn] Metode ini tidak membypass quality, hanya FPS saja.
+            `,
+            '720p': `
+                [format] .mp4
+                [resolution] 720p
+                [framerate] 30 FPS Presentation Patch
+                [info] Mengompresi video ke 720p dengan bitrate hemat MB, lalu menerapkan timescale patch agar playback di TikTok berjalan halus.
+                [warn] Metode ini tidak membypass quality, hanya FPS saja.
+            `,
+            '1080p': `
+                [format] .mp4
+                [resolution] 1080p
+                [framerate] 30 FPS Presentation Patch
+                [info] Mengompresi video pada resolusi Full HD 1080p dengan ukuran MB kecil dan tajam, lalu menerapkan timescale patch.
+                [warn] Metode ini tidak membypass quality, hanya FPS saja.
+            `
+        },
+        en: {
+            off: `
+                [format] .mp4
+                [mode] Direct Pass-Through
+                [framerate] 30 FPS Presentation Patch
+                [info] Video will appear in slow motion in local playback, but will play smoothly at 60 FPS once uploaded to TikTok.
+                [warn] This method does not bypass quality, only FPS.
+            `,
+            '720p': `
+                [format] .mp4
+                [resolution] 720p
+                [framerate] 30 FPS Presentation Patch
+                [info] Compresses video to 720p with size-efficient bitrate, then applies timescale patch for smooth playback on TikTok.
+                [warn] This method does not bypass quality, only FPS.
+            `,
+            '1080p': `
+                [format] .mp4
+                [resolution] 1080p
+                [framerate] 30 FPS Presentation Patch
+                [info] Compresses video at Full HD 1080p with compact file size and sharp quality, then applies timescale patch.
+                [warn] This method does not bypass quality, only FPS.
+            `
         }
-
-        const rawOutput = await compressFn(file, mode, s.currentFileBuffer);
-
-        s.log(`  Executing FPS metadata patch on compressed video...`);
-        let finalResultBytes;
-        try {
-            finalResultBytes = _v3_patchMp4FPSMethod(rawOutput);
-        } catch (pErr) {
-            s.log(`  [Notice] FPS patch failed, using compressed output as-is: ${pErr.message}`);
-            finalResultBytes = rawOutput;
-        }
-        s.logEnd();
-
-        const finalizeFn = window.finalizePatcherDownload || (s && s.finalizePatcherDownload);
-        if (typeof finalizeFn === 'function') {
-            finalizeFn(file, finalResultBytes, 'hd');
-        } else {
-            const blob     = new Blob([finalResultBytes], { type: 'video/mp4' });
-            const url      = URL.createObjectURL(blob);
-            const filename = `${file.name.replace(/\.[^.]+$/, '')}_hd.mp4`;
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-
-    } catch (error) {
-        s.log(`  !! Process Error: ${s.escapeHTML(error.message)}`);
-        console.error(error);
-        s.showStatusError(`Error: ${s.escapeHTML(error.message)}`);
-        if (s.btnStart) s.btnStart.disabled = false;
-    } finally {
-        s.isProcessing = false;
-        if (s.btnStart) s.btnStart.disabled = false;
+    },
+    patch(buffer, ctx) {
+        const log = (ctx && ctx.log) || (() => {});
+        return _v3_patchMp4FPSMethod(buffer, log);
     }
-};
+});
 
 })();

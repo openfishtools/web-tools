@@ -1,8 +1,10 @@
 /* =========================================================================
- * Cutefish Emergency FPS Method (emergencymethod.js)
- * Automatically converts >60fps videos (e.g. 120fps) into 60fps slowmo,
- * which speeds up on mobile TikTok player into ultra-smooth 120fps playback.
- * Pure JS MP4 atom manipulator.
+ * Cutefish Clip Normalizer Module (normalize.js)
+ * Mandatory pre-patch normalization stage (runs before patch, or after
+ * compress.js when compression is enabled):
+ *   1. Faststart stream normalization (remuxFaststart) for pass-through mode
+ *   2. High-FPS (>60fps, e.g. 120fps) normalization into 60fps slow motion
+ *      with synchronized audio/video stts deltas.
  * ========================================================================= */
 
 (function () {
@@ -225,7 +227,7 @@ function _em_rebuildBox(box, replacements) {
 /**
  * Checks if a video buffer has FPS > 60.
  * @param {ArrayBuffer|Uint8Array} inputData
- * @returns {number|null} detected FPS, or null if cannot be determined
+ * @returns {number|null} detected FPS, or null if <= 60 or cannot be determined
  */
 function isEmergencyFpsNeeded(inputData) {
     try {
@@ -282,14 +284,12 @@ function isEmergencyFpsNeeded(inputData) {
 }
 
 /**
- * Emergency FPS patcher for videos > 60fps (e.g. 120fps).
- * Halves the framerate to 60fps slowmo by doubling the sample delta,
- * perfectly syncing audio and video. When played on mobile TikTok,
- * the player renders it at full 120fps speed.
+ * Normalizes videos > 60fps (e.g. 120fps) into 60fps slow motion
+ * by doubling the sample delta and syncing audio and video.
  *
  * @param {ArrayBuffer|Uint8Array} inputData
  * @param {Function} [_logFn] Optional log callback
- * @returns {Uint8Array} Patched MP4 bytes (or original bytes if <= 60fps)
+ * @returns {Uint8Array} Normalized MP4 bytes (or original bytes if <= 60fps)
  */
 function patchEmergencyFpsMethod(inputData, _logFn) {
     const _log = _logFn || (() => {});
@@ -328,15 +328,13 @@ function patchEmergencyFpsMethod(inputData, _logFn) {
     const vBaseDelta   = vStts[0] ? vStts[0][1] : 1000;
     const inputFps     = Math.round(vTimescale / vBaseDelta);
 
-    // Only apply if video is actually above 60fps!
     if (inputFps <= 60) {
-        _log(`  [Emergency FPS] Video is ${inputFps}fps (<=60fps), emergency patch not needed.`);
+        _log(`  [Normalize] Video is ${inputFps}fps (<=60fps), FPS normalization not needed.`);
         return srcArr;
     }
 
-    _log(`  [Emergency FPS] Detected ${inputFps}fps (>60fps). Converting to 60fps slowmo...`);
+    _log(`  [Normalize] Detected ${inputFps}fps (>60fps). Normalizing to 60fps slowmo...`);
 
-    // Double the delta to halve the FPS (e.g. 120fps -> 60fps slowmo)
     const newVStts = [
         [vSampleCount - 1, vBaseDelta * 2],
         [1, vBaseDelta]
@@ -463,14 +461,118 @@ function patchEmergencyFpsMethod(inputData, _logFn) {
         }
     }
 
-    _log(`  [Emergency FPS] Complete: ${inputFps}fps -> ${Math.round(vTimescale / (vBaseDelta * 2))}fps slowmo.`);
+    _log(`  [Normalize] Complete: ${inputFps}fps -> ${Math.round(vTimescale / (vBaseDelta * 2))}fps slowmo.`);
     return finalOutput;
 }
 
+/**
+ * Fast stream-copy remux to standardize track order (Video Track 1, Audio Track 2),
+ * interleave chunks, remove junk metadata/boxes, and ensure faststart (moov at start).
+ *
+ * @param {File} file - Original user-selected video file
+ * @param {ArrayBuffer|Uint8Array} [inputBuffer] - Video bytes
+ * @returns {Promise<Uint8Array>} Normalized faststart MP4 bytes
+ */
+async function remuxFaststart(file, inputBuffer) {
+    const s = window._tktk;
+    if (!s) throw new Error('TikTok tool state (_tktk) is not initialized.');
+
+    const isReady = await s.loadFFmpegLibraries();
+    if (!isReady) throw new Error('Processing engine failed to load.');
+
+    const { toBlobURL } = window.FFmpegUtil;
+    const ffmpeg = await s.loadFFmpegHelper(null, toBlobURL);
+
+    const buffer = inputBuffer || s.currentFileBuffer;
+    if (!buffer) throw new Error('Video buffer is empty.');
+
+    await ffmpeg.writeFile('input_remux.mp4', new Uint8Array(buffer));
+
+    const command = [
+        '-y', '-i', 'input_remux.mp4',
+        '-map', '0:v:0',
+        '-map', '0:a:0?',
+        '-c', 'copy',
+        '-movflags', '+faststart',
+        'output_remux.mp4'
+    ];
+
+    try {
+        await ffmpeg.exec(command);
+        const remuxedData = await ffmpeg.readFile('output_remux.mp4');
+        try {
+            await ffmpeg.deleteFile('input_remux.mp4');
+            await ffmpeg.deleteFile('output_remux.mp4');
+        } catch (cleanErr) {}
+
+        return new Uint8Array(remuxedData.buffer, remuxedData.byteOffset, remuxedData.byteLength);
+    } catch (err) {
+        try {
+            await ffmpeg.deleteFile('input_remux.mp4');
+            await ffmpeg.deleteFile('output_remux.mp4');
+        } catch (cleanErr) {}
+        throw err;
+    }
+}
+
+/**
+ * Mandatory Clip Normalization Pipeline Stage (runs after compress.js if compressed,
+ * and always before dynamic method/item/*.js patch):
+ * 1. If not compressed and method requires faststart stream normalization, runs remuxFaststart.
+ * 2. If clip FPS > 60 and method does not handle its own 60fps slowmo, normalizes clip to 60fps slowmo.
+ *
+ * @param {File} file
+ * @param {ArrayBuffer|Uint8Array} inputBuffer
+ * @param {Object} [options]
+ * @returns {Promise<Uint8Array|ArrayBuffer>}
+ */
+async function normalizeClip(file, inputBuffer, options) {
+    const opts = options || {};
+    const s = window._tktk || {};
+    const log = opts.log || s.log || (() => {});
+    const logSection = opts.logSection || s.logSection || (() => {});
+    const logEnd = opts.logEnd || s.logEnd || (() => {});
+
+    let workingBuffer = inputBuffer;
+
+    if (!opts.isCompressed && opts.remuxFaststart) {
+        const remuxFn = window.remuxFaststart || (s && s.remuxFaststart) || remuxFaststart;
+        if (typeof remuxFn === 'function') {
+            logSection('Clip Normalization — Faststart Remux');
+            log('  Standardizing MP4 streams (Faststart Remux)...');
+            try {
+                workingBuffer = await remuxFn(file, workingBuffer);
+                log('  Stream normalization complete.');
+            } catch (remuxErr) {
+                log(`  [Notice] Stream remux skipped, using source buffer: ${remuxErr.message}`);
+                workingBuffer = inputBuffer;
+            }
+            logEnd();
+        }
+    }
+
+    if (!opts.handlesOwn60FpsSlowmo && isEmergencyFpsNeeded(workingBuffer)) {
+        logSection('Clip Normalization — High FPS (>60fps)');
+        log('  [Normalize] Video > 60fps terdeteksi. Menormalisasikan clip ke 60fps slowmo...');
+        try {
+            workingBuffer = patchEmergencyFpsMethod(workingBuffer, log);
+        } catch (emErr) {
+            log(`  [Notice] High-FPS normalization skipped: ${emErr.message}`);
+        }
+        logEnd();
+    }
+
+    return workingBuffer;
+}
+
+window.normalizeClip = normalizeClip;
+window.remuxFaststart = remuxFaststart;
 window.isEmergencyFpsNeeded = isEmergencyFpsNeeded;
 window.patchEmergencyFpsMethod = patchEmergencyFpsMethod;
 
 if (window._tktk) {
+    window._tktk.normalizeClip = normalizeClip;
+    window._tktk.remuxFaststart = remuxFaststart;
     window._tktk.isEmergencyFpsNeeded = isEmergencyFpsNeeded;
     window._tktk.patchEmergencyFpsMethod = patchEmergencyFpsMethod;
 }

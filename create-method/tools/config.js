@@ -3,11 +3,16 @@ const path = require('path');
 
 function getApiKey() {
     if (process.env.ZERNIO_API_KEY) return process.env.ZERNIO_API_KEY.trim();
-    const envPath = path.join(__dirname, '.env');
-    if (fs.existsSync(envPath)) {
-        const content = fs.readFileSync(envPath, 'utf8');
-        const match = content.match(/^ZERNIO_API_KEY\s*=\s*(.*)$/m);
-        if (match) return match[1].trim().replace(/^["']|["']$/g, '');
+    const candidates = [
+        path.join(__dirname, '..', '.env'),
+        path.join(__dirname, '.env')
+    ];
+    for (const envPath of candidates) {
+        if (fs.existsSync(envPath)) {
+            const content = fs.readFileSync(envPath, 'utf8');
+            const match = content.match(/^ZERNIO_API_KEY\s*=\s*(.*)$/m);
+            if (match) return match[1].trim().replace(/^["']|["']$/g, '');
+        }
     }
     return '';
 }

@@ -28,7 +28,7 @@ Floor: code, commands, paths, numbers and error strings verbatim; never drop not
 - `video/`: Video & audio utilities (`audio-extractor-tool.js`, `video-compressor-tool.js`, `image-sequence-tool.js`, `video-interpolation-tool.js`).
 - `converters/`: Animation and project format converters (`ae-to-am-beatmark-tool.js`, `fivemb-generator-tool.js`).
 - `tiktok/`: Social media and container tools (`tiktok-downloader-tool.js`, `tiktok-quality-tool.js`, `tiktok-stats-tool.js`).
-- `method/`: Core binary atom patching and compression helpers (`finalize.js`, `compress.js`, `emergencymethod.js`, `wmvpatch.js`, `FRYMethod.js`, `binarypatch.js`, `fpspatch.js`, `streamshield.js`).
+- `method/`: Core binary atom patching helpers (`finalize.js`, `compress.js`, `normalize.js`) and self-registering method items in `method/item/` (`fish.js`, `binary.js`, `fps.js`, `wmv.js`).
 - `workers/`: Background Web Worker execution scripts for high-load media processing.
 - `package.json`: Single source of truth for library version.
 

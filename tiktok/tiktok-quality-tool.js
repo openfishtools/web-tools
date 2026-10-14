@@ -9,10 +9,18 @@
         return key;
     }
 
+    function tOpt(key, fallback) {
+        if (key && typeof window.getTranslation === 'function') {
+            const res = window.getTranslation(key);
+            if (res && res !== key) return res;
+        }
+        return fallback;
+    }
+
     let selectedFile = null;
     let currentFileBuffer = null;
     let isProcessing = false;
-    let currentVersion = 'tbt';
+    let currentVersion = '';
     let compressMode = 'off';
     let currentInspectedFile = null;
     let currentVideoSpecs = null;
@@ -538,7 +546,8 @@
             }
         }
 
-        if (currentVersion !== 'v3' && currentVersion !== 'binary' && currentVersion !== 'tbt' && currentVersion !== 'streamshield') {
+        const activeMethod = getActiveMethod(currentVersion);
+        if (!activeMethod || !activeMethod.requiresUserscript) {
             slot.innerHTML = '';
             if (processBtn && !isProcessing && processBtn.dataset.state === 'blocked') {
                 processBtn.disabled = false;
@@ -955,117 +964,100 @@
         window.renderModularDescCard = renderModularDescCard;
     }
 
+    function getRegistry() {
+        return (typeof window !== 'undefined' && window.TikTokMethods) ? window.TikTokMethods : null;
+    }
+
+    function getAllRegisteredMethods() {
+        const reg = getRegistry();
+        if (reg && typeof reg.getAll === 'function') return reg.getAll();
+        if (reg && Array.isArray(reg._items)) return reg._items.slice();
+        return [];
+    }
+
+    function getActiveMethod(methodId) {
+        const reg = getRegistry();
+        const targetId = methodId || currentVersion;
+        if (reg && typeof reg.getById === 'function') {
+            return reg.getById(targetId) || (typeof reg.getDefault === 'function' ? reg.getDefault() : null);
+        }
+        const items = getAllRegisteredMethods();
+        if (items.length === 0) return null;
+        const lower = String(targetId || '').toLowerCase();
+        return items.find(m =>
+            m.id.toLowerCase() === lower ||
+            (Array.isArray(m.aliases) && m.aliases.some(a => String(a).toLowerCase() === lower))
+        ) || items[0] || null;
+    }
+
+    function getDynamicCategories() {
+        const items = getAllRegisteredMethods();
+        const catDefs = {
+            recommended: {
+                id: 'recommended',
+                labelKey: 'patcher_cat_recommended',
+                defaultLabel: 'Rekomendasi',
+                icon: 'verified',
+                methods: []
+            },
+            backup: {
+                id: 'backup',
+                labelKey: 'patcher_cat_backup',
+                defaultLabel: 'Cadangan',
+                icon: 'history',
+                methods: []
+            }
+        };
+
+        for (const m of items) {
+            const catKey = m.category || 'recommended';
+            if (!catDefs[catKey]) {
+                catDefs[catKey] = {
+                    id: catKey,
+                    labelKey: `patcher_cat_${catKey}`,
+                    defaultLabel: catKey.toUpperCase(),
+                    icon: 'tune',
+                    methods: []
+                };
+            }
+            catDefs[catKey].methods.push({
+                id: m.id,
+                labelKey: m.labelKey || '',
+                defaultLabel: m.name || m.id.toUpperCase(),
+                raw: m
+            });
+        }
+
+        return catDefs;
+    }
+
+    const lastSelectedPerCat = {};
+
+    function getCategoryForMethod(methodId) {
+        const m = getActiveMethod(methodId);
+        return (m && m.category) ? m.category : 'recommended';
+    }
+
     function updateDesc() {
         const descEl = document.getElementById('tiktok-info-desc');
         if (!descEl) return;
+
+        const activeMethod = getActiveMethod(currentVersion);
+        const isEn = (typeof window !== 'undefined' && window.currentLang === 'en');
+        const lang = isEn ? 'en' : 'id';
+        const modeKey = (activeMethod && activeMethod.supportsCompress === false) ? 'off' : (compressMode || 'off');
+
         let baseDesc = '';
-        if (currentVersion === 'v1') {
-            baseDesc = t('patcher_desc_wmv') || `
-                [format] .wmv
-                [codec] WMV2
-                [info] Mengonversi video ke format Windows Media Video (.wmv) melalui penyandian ulang lossless.
-            `;
-        } else if (currentVersion === 'fps') {
-            if (compressMode === '720p') {
-                baseDesc = t('patcher_desc_fps_720p') || `
-                    [format] .mp4
-                    [resolution] 720p
-                    [framerate] 30 FPS Presentation Patch
-                    [info] Mengompresi video ke 720p dengan bitrate hemat MB, lalu menerapkan timescale patch agar playback di TikTok berjalan halus.
-                    [warn] Metode ini tidak membypass quality, hanya FPS saja.
-                `;
-            } else if (compressMode === '1080p') {
-                baseDesc = t('patcher_desc_fps_1080p') || `
-                    [format] .mp4
-                    [resolution] 1080p
-                    [framerate] 30 FPS Presentation Patch
-                    [info] Mengompresi video pada resolusi Full HD 1080p dengan ukuran MB kecil dan tajam, lalu menerapkan timescale patch.
-                    [warn] Metode ini tidak membypass quality, hanya FPS saja.
-                `;
-            } else {
-                baseDesc = t('patcher_desc_fps_off') || t('patcher_desc_fps') || `
-                    [format] .mp4
-                    [mode] Direct Pass-Through
-                    [framerate] 30 FPS Presentation Patch
-                    [info] Video akan terlihat slow motion di galeri offline, namun otomatis berjalan mulus (smooth 60 FPS) saat diunggah ke TikTok.
-                    [warn] Metode ini tidak membypass quality, hanya FPS saja.
-                `;
-            }
-        } else if (currentVersion === 'binary') {
-            if (compressMode === '720p') {
-                baseDesc = t('patcher_desc_binary_720p') || `
-                    [format] .mp4
-                    [resolution] 720p
-                    [codec] H.264
-                    [info] Mengompresi dan menyesuaikan batas resolusi ke 720p dengan alokasi bitrate teroptimasi, lalu menerapkan rekonstruksi metadata kontainer MP4.
-                `;
-            } else if (compressMode === '1080p') {
-                baseDesc = t('patcher_desc_binary_1080p') || `
-                    [format] .mp4
-                    [resolution] 1080p
-                    [codec] H.264
-                    [info] Mengompresi video pada resolusi Full HD 1080p dengan batas bitrate tinggi untuk menjaga ketajaman gerak, dilanjutkan dengan rekonstruksi metadata kontainer MP4.
-                `;
-            } else {
-                baseDesc = t('patcher_desc_binary_off') || `
-                    [format] .mp4
-                    [mode] Direct Pass-Through
-                    [info] Menata ulang struktur metadata dan susunan streaming MP4 secara langsung tanpa kompresi, menjaga resolusi serta kualitas visual asli tetap utuh 100%.
-                `;
-            }
-        } else if (currentVersion === 'tbt' || currentVersion === 'streamshield' || currentVersion === 'fish') {
-            if (compressMode === '720p') {
-                baseDesc = t('patcher_desc_fish_720p') || `
-                    [format] .mp4
-                    [resolution] 720p
-                    [info] Mengompresi video ke 720p agar ukuran file lebih ringan, lalu menata ulang metadata MP4.
-                `;
-            } else if (compressMode === '1080p') {
-                baseDesc = t('patcher_desc_fish_1080p') || `
-                    [format] .mp4
-                    [resolution] 1080p
-                    [info] Mengompresi video ke Full HD 1080p untuk menjaga ketajaman, lalu menata ulang metadata MP4.
-                `;
-            } else {
-                baseDesc = t('patcher_desc_fish_off') || `
-                    [format] .mp4
-                    [mode] Direct Pass-Through
-                    [info] Menata ulang struktur atom MP4 secara instan tanpa encode ulang, menjaga resolusi serta kualitas video dan audio tetap 100% asli.
-                `;
-            }
-        } else {
-            // v3 (F R Y)
-            if (compressMode === '720p') {
-                baseDesc = t('patcher_desc_fry_720p') || `
-                    [format] .mp4
-                    [resolution] 720p
-                    [info] Mengompresi video ke 720p agar ukuran file lebih ringan, lalu menerapkan patch metadata MP4.
-                    [credit] Terima kasih untuk <a href="https://www.tiktok.com/@itsmefachry" target="_blank" rel="noopener noreferrer">@itsmefachry</a> &amp; <a href="https://www.tiktok.com/@adek.jamannow" target="_blank" rel="noopener noreferrer">@adek.jamannow</a> karena sudah membagikan source method-nya dan membantu fix method ini.
-                `;
-            } else if (compressMode === '1080p') {
-                baseDesc = t('patcher_desc_fry_1080p') || `
-                    [format] .mp4
-                    [resolution] 1080p
-                    [info] Mengompresi video ke Full HD 1080p untuk menjaga ketajaman, lalu menerapkan patch metadata MP4.
-                    [credit] Terima kasih untuk <a href="https://www.tiktok.com/@itsmefachry" target="_blank" rel="noopener noreferrer">@itsmefachry</a> &amp; <a href="https://www.tiktok.com/@adek.jamannow" target="_blank" rel="noopener noreferrer">@adek.jamannow</a> karena sudah membagikan source method-nya dan membantu fix method ini.
-                `;
-            } else {
-                baseDesc = t('patcher_desc_fry_off') || `
-                    [format] .mp4
-                    [mode] Direct Pass-Through
-                    [info] Menata ulang metadata MP4 tanpa encode ulang, menjaga kualitas video dan audio tetap asli.
-                    [credit] Terima kasih untuk <a href="https://www.tiktok.com/@itsmefachry" target="_blank" rel="noopener noreferrer">@itsmefachry</a> &amp; <a href="https://www.tiktok.com/@adek.jamannow" target="_blank" rel="noopener noreferrer">@adek.jamannow</a> karena sudah membagikan source method-nya dan membantu fix method ini.
-                `;
-            }
+        if (activeMethod && activeMethod.descriptions) {
+            const langMap = activeMethod.descriptions[lang] || activeMethod.descriptions.id || {};
+            baseDesc = langMap[modeKey] || langMap.off || '';
         }
 
         baseDesc = renderModularDescCard(baseDesc);
 
         if (currentVideoSpecs) {
             const badges = [];
-            let patchName = currentVersion.toUpperCase();
-            if (currentVersion === 'v3') patchName = 'F R Y';
-            else if (currentVersion === 'tbt' || currentVersion === 'fish') patchName = 'FISH';
+            const patchName = (activeMethod && activeMethod.name) ? activeMethod.name : (currentVersion || '').toUpperCase();
 
             if (isSpecsOver1080p()) {
                 const resText = (t('patcher_notice_res_limit') || 'Resolusi <strong>{res}</strong> (&gt; 1080p) terdeteksi. Kompresi otomatis diatur ke <strong>1080p</strong>.')
@@ -1099,7 +1091,7 @@
                 `);
             } else if (isSpecsOver60Fps()) {
                 let fpsText = '';
-                if (currentVersion === 'fps') {
+                if (activeMethod && activeMethod.handlesOwn60FpsSlowmo) {
                     fpsText = (t('patcher_notice_fps_direct') || 'Video <strong>{fps} FPS</strong> (&gt; 60 FPS) terdeteksi. Dikonversi ke <strong>60 FPS slow motion</strong>.')
                         .replace('{fps}', currentVideoSpecs.fps);
                 } else {
@@ -1124,57 +1116,29 @@
         descEl.innerHTML = baseDesc;
     }
 
-    const METHOD_CATEGORIES = {
-        recommended: {
-            id: 'recommended',
-            labelKey: 'patcher_cat_recommended',
-            defaultLabel: 'Rekomendasi',
-            icon: 'verified',
-            methods: [
-                { id: 'tbt', labelKey: 'patcher_method_tbt', defaultLabel: 'FISH' },
-                { id: 'binary', labelKey: 'patcher_method_binary', defaultLabel: 'BINARY' },
-                { id: 'v3', labelKey: 'patcher_method_fry', defaultLabel: 'F R Y' }
-            ]
-        },
-        backup: {
-            id: 'backup',
-            labelKey: 'patcher_cat_backup',
-            defaultLabel: 'Cadangan',
-            icon: 'history',
-            methods: [
-                { id: 'fps', labelKey: 'patcher_method_fps', defaultLabel: 'FPS' },
-                { id: 'v1', labelKey: 'patcher_method_wmv', defaultLabel: 'WMV' }
-            ]
-        }
-    };
-
-    const lastSelectedPerCat = {
-        recommended: 'tbt',
-        backup: 'fps'
-    };
-
-    function getCategoryForMethod(methodId) {
-        if (methodId === 'v1' || methodId === 'fps') {
-            return 'backup';
-        }
-        return 'recommended';
-    }
-
     function initQualityMethodUI() {
         const optContainer = document.getElementById('tool-dynamic-options');
         if (!optContainer) return;
 
-        let activeCategory = getCategoryForMethod(currentVersion);
-        const catData = METHOD_CATEGORIES[activeCategory] || METHOD_CATEGORIES.recommended;
+        const categories = getDynamicCategories();
+        const availableCats = Object.values(categories).filter(c => c.methods.length > 0);
+        const fallbackCatKey = availableCats.length > 0 ? availableCats[0].id : 'recommended';
 
-        if (!catData.methods.some(m => m.id === currentVersion)) {
+        let activeCategory = getCategoryForMethod(currentVersion);
+        if (!categories[activeCategory] || categories[activeCategory].methods.length === 0) {
+            activeCategory = fallbackCatKey;
+        }
+        const catData = categories[activeCategory] || { methods: [] };
+
+        if (catData.methods.length > 0 && !catData.methods.some(m => m.id === currentVersion)) {
             currentVersion = (lastSelectedPerCat[activeCategory] && catData.methods.some(m => m.id === lastSelectedPerCat[activeCategory]))
                 ? lastSelectedPerCat[activeCategory]
                 : catData.methods[0].id;
         }
         lastSelectedPerCat[activeCategory] = currentVersion;
 
-        const showCompress = (currentVersion !== 'v1');
+        const activeMethod = getActiveMethod(currentVersion);
+        const showCompress = !activeMethod || (activeMethod.supportsCompress !== false);
         const compressList = ['off', '720p', '1080p'];
         const cIdx = compressList.indexOf(compressMode);
         const selectedCIdx = cIdx >= 0 ? cIdx : 0;
@@ -1183,14 +1147,12 @@
             <div class="tiktok-category-header">
                 <div class="tiktok-switcher-label">${t('patcher_ver_title')}</div>
                 <div class="tiktok-category-tabs" role="tablist">
-                    <button type="button" class="tiktok-category-tab ${activeCategory === 'recommended' ? 'active' : ''}" data-category="recommended" role="tab" aria-selected="${activeCategory === 'recommended'}">
-                        <span class="material-symbols-rounded">verified</span>
-                        <span>${t('patcher_cat_recommended') || 'Rekomendasi'}</span>
-                    </button>
-                    <button type="button" class="tiktok-category-tab ${activeCategory === 'backup' ? 'active' : ''}" data-category="backup" role="tab" aria-selected="${activeCategory === 'backup'}">
-                        <span class="material-symbols-rounded">history</span>
-                        <span>${t('patcher_cat_backup') || 'Cadangan'}</span>
-                    </button>
+                    ${availableCats.map(cat => `
+                        <button type="button" class="tiktok-category-tab ${activeCategory === cat.id ? 'active' : ''}" data-category="${cat.id}" role="tab" aria-selected="${activeCategory === cat.id}">
+                            <span class="material-symbols-rounded">${cat.icon || 'verified'}</span>
+                            <span>${tOpt(cat.labelKey, cat.defaultLabel)}</span>
+                        </button>
+                    `).join('')}
                 </div>
             </div>
             <div class="tiktok-switch-scroll" id="tiktok-version-scroll"></div>
@@ -1226,9 +1188,10 @@
 
         function renderMethodTrack(catKey) {
             activeCategory = catKey;
-            const currentCatData = METHOD_CATEGORIES[catKey] || METHOD_CATEGORIES.recommended;
+            const latestCategories = getDynamicCategories();
+            const currentCatData = latestCategories[catKey] || latestCategories[fallbackCatKey] || { methods: [] };
             const scrollContainer = document.getElementById('tiktok-version-scroll');
-            if (!scrollContainer) return;
+            if (!scrollContainer || currentCatData.methods.length === 0) return;
 
             if (!currentCatData.methods.some(m => m.id === currentVersion)) {
                 currentVersion = (lastSelectedPerCat[catKey] && currentCatData.methods.some(m => m.id === lastSelectedPerCat[catKey]))
@@ -1244,7 +1207,7 @@
                 <div class="tiktok-switch-track" id="tiktok-version-switch" data-selected="${currentVersion}" data-count="${count}" data-selected-idx="${activeIdx}" style="--total: ${count}; --idx: ${activeIdx};">
                     <div class="tiktok-switch-indicator"></div>
                     ${currentCatData.methods.map((m, idx) => `
-                        <div class="tiktok-switch-option ${m.id === currentVersion ? 'active' : ''}" data-version="${m.id}" data-idx="${idx}">${t(m.labelKey) || m.defaultLabel}</div>
+                        <div class="tiktok-switch-option ${m.id === currentVersion ? 'active' : ''}" data-version="${m.id}" data-idx="${idx}">${tOpt(m.labelKey, m.defaultLabel)}</div>
                     `).join('')}
                 </div>
             `;
@@ -1264,8 +1227,9 @@
                         vSwitch.setAttribute('data-selected', currentVersion);
                         vSwitch.setAttribute('data-selected-idx', optIdx);
                         vSwitch.style.setProperty('--idx', optIdx);
+                        const selMethod = getActiveMethod(currentVersion);
                         if (cRow) {
-                            cRow.style.display = (currentVersion !== 'v1') ? 'block' : 'none';
+                            cRow.style.display = (!selMethod || selMethod.supportsCompress !== false) ? 'block' : 'none';
                         }
                         updateCompressUIForSpecs();
                         updateExtensionWarning();
@@ -1274,8 +1238,9 @@
                 });
             }
 
+            const curMethod = getActiveMethod(currentVersion);
             if (cRow) {
-                cRow.style.display = (currentVersion !== 'v1') ? 'block' : 'none';
+                cRow.style.display = (!curMethod || curMethod.supportsCompress !== false) ? 'block' : 'none';
             }
             updateCompressUIForSpecs();
             updateExtensionWarning();
@@ -1367,6 +1332,12 @@
         }
         await checkExtensionPresence();
 
+        const activeMethod = getActiveMethod(currentVersion);
+        if (!activeMethod || (typeof activeMethod.patch !== 'function' && typeof activeMethod.execute !== 'function')) {
+            throw new Error(`Method "${currentVersion}" is not loaded.`);
+        }
+        currentVersion = activeMethod.id;
+
         const isResOver1080p = isSpecsOver1080p();
         const isFpsOver60 = isSpecsOver60Fps();
         const isFpsOver120 = currentVideoSpecs && currentVideoSpecs.fps >= 120;
@@ -1378,7 +1349,7 @@
             updateCompressUIForSpecs();
         }
 
-        if ((currentVersion === 'v3' || currentVersion === 'binary' || currentVersion === 'tbt' || currentVersion === 'streamshield') && isHighProfile && (!isExtensionDetected || detectedUserscriptVersion !== TARGET_USERSCRIPT_VERSION)) {
+        if (activeMethod.requiresUserscript && isHighProfile && (!isExtensionDetected || detectedUserscriptVersion !== TARGET_USERSCRIPT_VERSION)) {
             updateExtensionWarning();
             if (typeof window.showToast === 'function') {
                 window.showToast(t('patcher_ext_blocked_toast'));
@@ -1409,13 +1380,9 @@
             window.ToolProgressManager.set('tool-tiktok-patcher', { isProcessing: true, percent: 0, status: t('status_initializing'), file });
         }
 
+        const methodLogName = activeMethod.name || activeMethod.id.toUpperCase();
         logSection('Quality method — Initializing');
         log(`  File : ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
-        let methodLogName = currentVersion.toUpperCase();
-        if (currentVersion === 'v3') methodLogName = 'F R Y';
-        else if (currentVersion === 'binary') methodLogName = 'BINARY';
-        else if (currentVersion === 'fps') methodLogName = 'FPS';
-        else if (currentVersion === 'tbt' || currentVersion === 'fish') methodLogName = 'FISH';
         log(`  method : ${methodLogName}`);
 
         // Effective compress mode calculation
@@ -1423,12 +1390,15 @@
         if (isResOver1080p && effectiveCompressMode === 'off') {
             effectiveCompressMode = '1080p';
         }
+        if (activeMethod.supportsCompress === false) {
+            effectiveCompressMode = 'off';
+        }
 
-        if (currentVersion !== 'v1') {
+        if (activeMethod.supportsCompress !== false) {
             log(`  Compress : ${effectiveCompressMode.toUpperCase()}`);
         }
         if (isFpsOver60) {
-            if (currentVersion === 'fps') {
+            if (activeMethod.handlesOwn60FpsSlowmo) {
                 log(`  FPS Profile : ${currentVideoSpecs.fps} FPS -> Converting to 60 FPS slow motion`);
             } else {
                 log(`  FPS Profile : ${currentVideoSpecs.fps} FPS -> Converting to 60 FPS slow motion before ${methodLogName} patch`);
@@ -1452,40 +1422,82 @@
             window._tktk.currentFileBuffer = currentFileBuffer;
             window._tktk.selectedFile = file;
 
-            if (currentVersion === 'v1') {
-                if (typeof window.processVideoV1 === 'function') {
-                    await window.processVideoV1(file, effectiveCompressMode);
-                } else {
-                    throw new Error('V1 WMV module is not loaded.');
+            if (typeof activeMethod.patch === 'function') {
+                let workingBuffer = currentFileBuffer;
+                const isOff = (effectiveCompressMode === 'off');
+
+                // ==========================================================
+                // 1. OPTIONAL COMPRESS STAGE (compress.js)
+                // ==========================================================
+                if (!isOff && activeMethod.supportsCompress !== false) {
+                    const compressFn = window.compressVideo || (window._tktk && window._tktk.compressVideo);
+                    if (typeof compressFn !== 'function') {
+                        throw new Error('Compression module (compress.js) is not loaded.');
+                    }
+                    logSection('Smart Compression');
+                    workingBuffer = await compressFn(file, effectiveCompressMode, workingBuffer);
+                    logEnd();
                 }
-            } else if (currentVersion === 'fps') {
-                if (typeof window.processVideoFPS === 'function') {
-                    await window.processVideoFPS(file, effectiveCompressMode);
-                } else {
-                    await processFpsInternal(file, currentFileBuffer);
+
+                // ==========================================================
+                // 2. MANDATORY NORMALIZATION STAGE (normalize.js)
+                //    Normalizes clip before patching (and after compression
+                //    when compression is enabled).
+                // ==========================================================
+                const normalizeFn = window.normalizeClip || (window._tktk && window._tktk.normalizeClip);
+                if (typeof normalizeFn !== 'function') {
+                    throw new Error('Normalization module (normalize.js) is not loaded.');
                 }
-            } else if (currentVersion === 'binary') {
-                if (typeof window.processVideoBinary === 'function') {
-                    await window.processVideoBinary(file, effectiveCompressMode);
-                } else {
-                    throw new Error('Binary module is not loaded.');
+                workingBuffer = await normalizeFn(file, workingBuffer, {
+                    isCompressed: !isOff && activeMethod.supportsCompress !== false,
+                    remuxFaststart: !!activeMethod.remuxFaststart,
+                    handlesOwn60FpsSlowmo: !!activeMethod.handlesOwn60FpsSlowmo,
+                    log,
+                    logSection,
+                    logEnd
+                });
+
+                // ==========================================================
+                // 3. DYNAMIC PATCH STAGE (method/item/*.js)
+                // ==========================================================
+                logSection(`Applying ${methodLogName} Method`);
+                let patchResult;
+                try {
+                    patchResult = await activeMethod.patch(workingBuffer, {
+                        file,
+                        mode: effectiveCompressMode,
+                        log,
+                        logSection,
+                        logEnd,
+                        _tktk: window._tktk
+                    });
+                } catch (patchErr) {
+                    if (!isOff && activeMethod.supportsCompress !== false) {
+                        log(`  [Notice] ${methodLogName} patch fallback, using compressed stream: ${patchErr.message}`);
+                        patchResult = workingBuffer;
+                    } else {
+                        throw patchErr;
+                    }
                 }
-            } else if (currentVersion === 'tbt' || currentVersion === 'streamshield') {
-                if (typeof window.processVideoStreamShield === 'function') {
-                    await window.processVideoStreamShield(file, effectiveCompressMode);
-                } else if (typeof window.processVideoTBT === 'function') {
-                    await window.processVideoTBT(file, effectiveCompressMode);
-                } else {
-                    throw new Error('StreamShield module is not loaded.');
+                logEnd();
+
+                let finalBytes = patchResult;
+                let finalizeOpts = activeMethod.outputOptions || 'hd';
+                if (patchResult && !(patchResult instanceof Uint8Array) && !(patchResult instanceof ArrayBuffer) && patchResult.bytes) {
+                    finalBytes = patchResult.bytes;
+                    if (patchResult.outputOptions) finalizeOpts = patchResult.outputOptions;
                 }
+
+                // ==========================================================
+                // 4. MANDATORY FINALIZE STAGE (finalize.js)
+                // ==========================================================
+                const finalizeFn = window.finalizePatcherDownload || (window._tktk && window._tktk.finalizePatcherDownload);
+                if (typeof finalizeFn !== 'function') {
+                    throw new Error('Finalize module (finalize.js) is not loaded.');
+                }
+                finalizeFn(file, finalBytes, finalizeOpts);
             } else {
-                if (typeof window.processVideoFRY === 'function') {
-                    await window.processVideoFRY(file, effectiveCompressMode);
-                } else if (typeof window.processVideoV3 === 'function') {
-                    await window.processVideoV3(file, effectiveCompressMode);
-                } else {
-                    throw new Error('F R Y module is not loaded.');
-                }
+                await activeMethod.execute(file, effectiveCompressMode);
             }
         } catch (err) {
             console.error('Quality method Error:', err);
@@ -1499,60 +1511,6 @@
             isProcessing = false;
             if (processBtn) processBtn.disabled = false;
         }
-    }
-
-    async function processFpsInternal(file, buffer) {
-        const progressFill = document.getElementById('tool-progress-fill');
-        const progressPercent = document.getElementById('tool-progress-percent');
-        const progressStatus = document.getElementById('tool-progress-status');
-        const downloadBtn = document.getElementById('tool-download-btn');
-
-        logSection('FPS Direct Patch');
-        if (progressStatus) progressStatus.textContent = t('status_fps_adjusting');
-        if (progressFill) progressFill.style.width = '50%';
-        if (progressPercent) progressPercent.textContent = '50%';
-        if (window.ToolProgressManager) {
-            window.ToolProgressManager.set('tool-tiktok-patcher', { isProcessing: true, percent: 50, status: t('status_fps_adjusting'), file });
-        }
-
-        await new Promise(r => setTimeout(r, 200));
-
-        const bytes = new Uint8Array(buffer);
-        const blob = new Blob([bytes], { type: 'video/mp4' });
-        const outName = `[PATCHED_FPS]_${file.name}`;
-        window._lastFinalizedPatcherResult = { filename: outName, blob };
-
-        if (!activeContext) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = outName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        if (progressFill) progressFill.style.width = '100%';
-        if (progressPercent) progressPercent.textContent = '100%';
-        if (progressStatus) progressStatus.textContent = t('status_completed');
-        if (window.ToolProgressManager) {
-            window.ToolProgressManager.set('tool-tiktok-patcher', { isProcessing: false, completed: true, percent: 100, status: t('status_completed'), file });
-        }
-        log('  FPS metadata patch applied successfully.');
-        logEnd();
-
-        const processBtn = document.getElementById('tool-process-btn');
-        const processLabel = document.getElementById('tool-process-label');
-        const processIcon = document.getElementById('tool-process-icon');
-        if (processBtn) {
-            processBtn.disabled = false;
-            processBtn.dataset.state = 'completed';
-            if (processLabel) processLabel.textContent = t('status_process_another');
-            if (processIcon) processIcon.textContent = 'restart_alt';
-        }
-        if (typeof window.showToast === 'function') window.showToast(t('fps_patch_completed'));
-        showTikTokStudioUploadPrompt();
     }
 
     window._tktk = {
@@ -1603,70 +1561,73 @@
         removeTikTokStudioUploadPrompt
     };
 
+    function getDefaultMethodId() {
+        const def = getActiveMethod();
+        return def ? def.id : '';
+    }
+
     const toolDefinition = {
         id: 'tool-tiktok-patcher',
         _id: 'tool-tiktok-patcher',
         isTool: true,
-        version: '3.7.0',
+        version: '3.8.0',
         title: 'Quality method',
         titleKey: 'tool_patcher_title',
         desc: 'TikTok HQ Upload',
         descKey: 'patcher_subtitle',
         icon: 'high_quality',
         category: ['TikTok', 'Tools'],
-        features: [
-            'F R Y Patch',
-            'Binary Patch (Classic 0.2.0)',
-            'WMV Container Re-encode',
-            '60 FPS Timescale Patch',
-            '720p & 1080p Compression'
-        ],
+        get features() {
+            const list = getAllRegisteredMethods().map(m => `${m.name || m.id.toUpperCase()} Method`);
+            list.push('720p & 1080p Compression');
+            return list;
+        },
         specs: [
             { label: 'ENGINE', value: 'FFmpeg WASM & Pure JS' },
             { label: 'FORMAT', value: 'MP4, MOV, WebM' },
             { label: 'PROCESSING', value: 'Client-side (Browser)' }
         ],
         schema: {
-            inputs: [
-                {
-                    id: 'videoFile',
-                    name: 'videoFile',
-                    type: 'file',
-                    label: 'Video File',
-                    labelKey: 'tool_drop_video',
-                    accept: 'video/*',
-                    required: true
-                },
-                {
-                    id: 'method',
-                    name: 'method',
-                    type: 'segmented',
-                    label: 'method',
-                    labelKey: 'patcher_cat_quality_method',
-                    default: 'tbt',
-                    options: [
-                        { label: 'FISH', value: 'tbt' },
-                        { label: 'Binary', value: 'binary' },
-                        { label: 'StreamShield', value: 'streamshield' },
-                        { label: 'FRY', value: 'v3' },
-                        { label: 'FPS 60', value: 'fps' },
-                        { label: 'WMV', value: 'v1' }
-                    ]
-                },
-                {
-                    id: 'compress',
-                    name: 'compress',
-                    type: 'segmented',
-                    label: 'Compress',
-                    labelKey: 'patcher_compress_title',
-                    default: 'off',
-                    options: [
-                        { label: 'OFF', value: 'off' },
-                        { label: '720', value: '720p' },
-                        { label: '1080', value: '1080p' }
-                    ]
-                }
-            ]
+            get inputs() {
+                const methods = getAllRegisteredMethods();
+                const defId = getDefaultMethodId();
+                return [
+                    {
+                        id: 'videoFile',
+                        name: 'videoFile',
+                        type: 'file',
+                        label: 'Video File',
+                        labelKey: 'tool_drop_video',
+                        accept: 'video/*',
+                        required: true
+                    },
+                    {
+                        id: 'method',
+                        name: 'method',
+                        type: 'segmented',
+                        label: 'method',
+                        labelKey: 'patcher_cat_quality_method',
+                        default: defId,
+                        options: methods.map(m => ({
+                            label: m.name || m.id.toUpperCase(),
+                            value: m.id
+                        }))
+                    },
+                    {
+                        id: 'compress',
+                        name: 'compress',
+                        type: 'segmented',
+                        label: 'Compress',
+                        labelKey: 'patcher_compress_title',
+                        default: 'off',
+                        options: [
+                            { label: 'OFF', value: 'off' },
+                            { label: '720', value: '720p' },
+                            { label: '1080', value: '1080p' }
+                        ]
+                    }
+                ];
+            }
         },
         run: async function(inputs, context) {
             activeContext = context;
@@ -1675,8 +1636,8 @@
             try {
                 const file = (inputs && (inputs.videoFile || inputs.file)) || selectedFile;
                 if (!file) throw new Error('Video file is required');
-                currentVersion = inputs.method || 'tbt';
-                compressMode = inputs.compress || 'off';
+                currentVersion = (inputs && inputs.method) || getDefaultMethodId();
+                compressMode = (inputs && inputs.compress) || 'off';
                 selectedFile = file;
                 await processQualityMethod(file);
                 if (window._lastFinalizedPatcherResult) {
@@ -1704,9 +1665,8 @@
             currentInspectedFile = null;
             currentVideoSpecs = null;
             compressMode = 'off';
-            currentVersion = 'tbt';
-            lastSelectedPerCat.recommended = 'tbt';
-            lastSelectedPerCat.backup = 'fps';
+            currentVersion = getDefaultMethodId();
+            Object.keys(lastSelectedPerCat).forEach(k => delete lastSelectedPerCat[k]);
             removeTikTokStudioUploadPrompt();
             updateCompressUIForSpecs();
             const slot = document.getElementById('tiktok-ext-alert-slot');

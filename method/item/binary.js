@@ -527,137 +527,73 @@ function _v3_patchMp4(inputData, _logFn) {
     return patchResultStats;
 }
 
-function _v3_patchMp4BinaryMethod(inputBuffer) {
-    const result = _v3_patchMp4(inputBuffer, null);
+function _v3_patchMp4BinaryMethod(inputBuffer, logFn) {
+    const result = _v3_patchMp4(inputBuffer, logFn || null);
     return result.output;
 }
 window.patchMp4BinaryMethod = _v3_patchMp4BinaryMethod;
 
-window.processVideoBinary = async function processVideoBinary(file, mode) {
-    if (mode === undefined) mode = 'off';
-    const s = window._tktk;
-    s.isProcessing = true;
-
-    const isOff    = mode === 'off';
-    const safeName = s.escapeHTML(file.name);
-
-    if (s.btnStart) s.btnStart.disabled = true;
-    if (s.progressContainer) s.progressContainer.classList.remove('hidden');
-    if (s.logsContainer) s.logsContainer.classList.remove('hidden');
-    const dlBtn = document.getElementById('tool-download-btn');
-    if (dlBtn) dlBtn.classList.add('hidden');
-    s.statusText.innerHTML = `<span style="color: var(--md-sys-color-primary);">${window.getTranslation('status_loading_engine')}</span>`;
-    s.progressFill.style.width = '0%';
-    s.progressPercent.textContent = '0%';
-    s.progressText.textContent = 'Processing Binary...';
-
-    const modeLabel = isOff ? 'Direct Pass-Through (OFF)' : (mode === '720p' ? 'HD 720p Compress + Patch' : 'Full HD 1080p Compress + Patch');
-    s.logSection('BINARY PROCESSING');
-    s.log(`  File   : ${safeName}`);
-    s.log(`  Mode   : ${modeLabel}`);
-    s.log(`  Engine : Cutefish Binary Architecture (Dual Audio + V1 64-bit Infinite Duration)`);
-    s.logEnd();
-
-    if (isOff) {
-        let baseBuffer = s.currentFileBuffer;
-        s.log(`  [1/2] Standardizing MP4 streams (Faststart Remux)...`);
-
-        const remuxFn = window.remuxFaststart || (s && s.remuxFaststart);
-        if (typeof remuxFn === 'function') {
-            try {
-                baseBuffer = await remuxFn(file, s.currentFileBuffer);
-                s.log(`  Stream normalization complete.`);
-            } catch (remuxErr) {
-                s.log(`  [Notice] Stream remux skipped, using original buffer: ${remuxErr.message}`);
-                baseBuffer = s.currentFileBuffer;
-            }
-        }
-
-        if (typeof window.isEmergencyFpsNeeded === 'function' && window.isEmergencyFpsNeeded(baseBuffer)) {
-            s.log(`  [Emergency FPS] Video > 60fps terdeteksi. Menerapkan patch 60fps slowmo...`);
-            try {
-                baseBuffer = window.patchEmergencyFpsMethod(baseBuffer, s.log);
-            } catch (emErr) {
-                s.log(`  [Notice] Emergency FPS patch error: ${emErr.message}`);
-            }
-        }
-
-        s.log(`  [2/2] Applying Binary patch...`);
-        try {
-            const patchedBytes = _v3_patchMp4BinaryMethod(baseBuffer);
-            const finalizeFn = window.finalizePatcherDownload || (s && s.finalizePatcherDownload);
-            if (typeof finalizeFn === 'function') {
-                finalizeFn(file, patchedBytes, 'hd');
-            } else {
-                const blob     = new Blob([patchedBytes], { type: 'video/mp4' });
-                const url      = URL.createObjectURL(blob);
-                const filename = `${file.name.replace(/\.[^.]+$/, '')}_hd.mp4`;
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }
-            return;
-        } catch (jsErr) {
-            s.log(`  [Error] Binary patch failed: ${jsErr.message}`);
-            throw jsErr;
-        }
+(window.TikTokMethods = window.TikTokMethods || {
+    _items: [],
+    register(m) {
+        const i = this._items.findIndex(x => x.id === m.id);
+        if (i >= 0) this._items[i] = m; else this._items.push(m);
+        this._items.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
     }
-
-    try {
-        const compressFn = window.compressVideo || (s && s.compressVideo);
-        if (typeof compressFn !== 'function') {
-            throw new Error('Compression module (compress.js) is not loaded.');
+}).register({
+    id: 'binary',
+    name: 'BINARY',
+    category: 'recommended',
+    order: 2,
+    supportsCompress: true,
+    remuxFaststart: true,
+    requiresUserscript: true,
+    handlesOwn60FpsSlowmo: false,
+    outputOptions: 'hd',
+    descriptions: {
+        id: {
+            off: `
+                [format] .mp4
+                [mode] Direct Pass-Through
+                [info] Menata ulang struktur metadata dan susunan streaming MP4 secara langsung tanpa kompresi, menjaga resolusi serta kualitas visual asli tetap utuh 100%.
+            `,
+            '720p': `
+                [format] .mp4
+                [resolution] 720p
+                [codec] H.264
+                [info] Mengompresi dan menyesuaikan batas resolusi ke 720p dengan alokasi bitrate teroptimasi, lalu menerapkan rekonstruksi metadata kontainer MP4.
+            `,
+            '1080p': `
+                [format] .mp4
+                [resolution] 1080p
+                [codec] H.264
+                [info] Mengompresi video pada resolusi Full HD 1080p dengan batas bitrate tinggi untuk menjaga ketajaman gerak, dilanjutkan dengan rekonstruksi metadata kontainer MP4.
+            `
+        },
+        en: {
+            off: `
+                [format] .mp4
+                [mode] Direct Pass-Through
+                [info] Rearranges MP4 metadata structure and streaming layout directly without compression, keeping original resolution and visual quality 100% intact.
+            `,
+            '720p': `
+                [format] .mp4
+                [resolution] 720p
+                [codec] H.264
+                [info] Compresses and scales resolution to 720p with optimized bitrate allocation, followed by MP4 container metadata reconstruction.
+            `,
+            '1080p': `
+                [format] .mp4
+                [resolution] 1080p
+                [codec] H.264
+                [info] Compresses video at Full HD 1080p resolution with high bitrate allocation to preserve motion clarity, followed by MP4 container metadata reconstruction.
+            `
         }
-
-        const rawOutput = await compressFn(file, mode, s.currentFileBuffer);
-
-        s.log(`  Executing Binary MP4 patch on compressed video...`);
-        let finalResultBytes;
-        try {
-            let bufferToPatch = rawOutput;
-            if (typeof window.isEmergencyFpsNeeded === 'function' && window.isEmergencyFpsNeeded(bufferToPatch)) {
-                s.log(`  [Emergency FPS] Video kompresi > 60fps terdeteksi. Menerapkan patch 60fps slowmo...`);
-                try {
-                    bufferToPatch = window.patchEmergencyFpsMethod(bufferToPatch, s.log);
-                } catch (emErr2) {
-                    s.log(`  [Notice] Emergency FPS patch error: ${emErr2.message}`);
-                }
-            }
-            finalResultBytes = _v3_patchMp4BinaryMethod(bufferToPatch);
-        } catch (pErr) {
-            s.log(`  [Notice] Binary patch fallback, using compressed stream: ${pErr.message}`);
-            finalResultBytes = rawOutput;
-        }
-        s.logEnd();
-
-        const finalizeFn = window.finalizePatcherDownload || (s && s.finalizePatcherDownload);
-        if (typeof finalizeFn === 'function') {
-            finalizeFn(file, finalResultBytes, 'hd');
-        } else {
-            const blob     = new Blob([finalResultBytes], { type: 'video/mp4' });
-            const url      = URL.createObjectURL(blob);
-            const filename = `${file.name.replace(/\.[^.]+$/, '')}_hd.mp4`;
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }
-
-    } catch (error) {
-        s.log(`  !! Process Error: ${s.escapeHTML(error.message)}`);
-        console.error(error);
-        s.showStatusError(`Error: ${s.escapeHTML(error.message)}`);
-        if (s.btnStart) s.btnStart.disabled = false;
-    } finally {
-        s.isProcessing = false;
-        if (s.btnStart) s.btnStart.disabled = false;
+    },
+    patch(buffer, ctx) {
+        const log = (ctx && ctx.log) || (() => {});
+        return _v3_patchMp4BinaryMethod(buffer, log);
     }
-};
+});
 
 })();

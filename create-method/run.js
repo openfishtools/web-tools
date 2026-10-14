@@ -1,20 +1,33 @@
 const fs = require('fs');
 const path = require('path');
-const { encodeVideo, getFfprobeMeta } = require('./encode');
-const { uploadToZernio } = require('./upload');
-const { analyzeTikTokUrl } = require('./analyze');
-const config = require('./config');
+const { encodeVideo, getFfprobeMeta } = require('./tools/encode');
+const { uploadToZernio } = require('./tools/upload');
+const { analyzeTikTokUrl } = require('./tools/analyze');
+const config = require('./tools/config');
+
+const INPUT_DIR = path.join(__dirname, 'input');
+const OUTPUT_DIR = path.join(__dirname, 'output');
 
 function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
 }
 
 function findDefaultInput() {
-    // 1. Explicit input.mp4 if present
-    const explicit = path.join(__dirname, 'input.mp4');
-    if (fs.existsSync(explicit)) return explicit;
+    // 1. Explicit input/input.mp4 if present
+    const explicitInFolder = path.join(INPUT_DIR, 'input.mp4');
+    if (fs.existsSync(explicitInFolder)) return explicitInFolder;
 
-    // 2. Any .mp4 or .mov file in directory that is not an output or temp file
+    // 2. Any .mp4 or .mov file in input/ folder
+    if (fs.existsSync(INPUT_DIR)) {
+        const inEntries = fs.readdirSync(INPUT_DIR);
+        const inCandidate = inEntries.find(f => {
+            const l = f.toLowerCase();
+            return (l.endsWith('.mp4') || l.endsWith('.mov')) && !l.startsWith('temp_');
+        });
+        if (inCandidate) return path.join(INPUT_DIR, inCandidate);
+    }
+
+    // 3. Fallback: Any .mp4 or .mov in root create-method/
     const entries = fs.readdirSync(__dirname);
     const candidate = entries.find(f => {
         const l = f.toLowerCase();
@@ -26,7 +39,7 @@ function findDefaultInput() {
 
 function parseArgs() {
     const args = process.argv.slice(2);
-    let method = 'fish-v2';
+    let method = 'fish-v3';
     let input = null;
     let output = null;
     let caption = null;
@@ -69,6 +82,9 @@ function parseArgs() {
 async function main() {
     const { method, input, output, caption, privacyLevel, skipUpload, force, analyzeUrl } = parseArgs();
 
+    if (!fs.existsSync(INPUT_DIR)) fs.mkdirSync(INPUT_DIR, { recursive: true });
+    if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
     // Mode: Hanya analisa URL
     if (analyzeUrl) {
         console.log(`[Analyze-Only] URL: ${analyzeUrl}`);
@@ -96,8 +112,8 @@ async function main() {
     if (!inputPath || !fs.existsSync(inputPath)) {
         console.error(`\x1b[31m[Error] Video input tidak ditemukan!\x1b[0m`);
         console.error(`Petunjuk:`);
-        console.error(`  1. Tentukan file video: node run.js --input /path/ke/video.mp4`);
-        console.error(`  2. Atau letakkan file video apa saja (.mp4 / .mov) di dalam folder ini.`);
+        console.error(`  1. Taruh video uji coba di folder: create-method/input/input.mp4`);
+        console.error(`  2. Atau jalankan: node run.js --input /path/ke/video.mp4`);
         process.exit(1);
     }
 
@@ -107,15 +123,15 @@ async function main() {
         process.exit(1);
     }
 
-    console.log(`[Input] ${path.basename(inputPath)} (${inputMeta.width}x${inputMeta.height} @ ${inputMeta.fps}fps, ${inputMeta.bitrateMbps}Mbps, ${inputMeta.sizeMb}MB)`);
+    console.log(`[Input] ${path.relative(__dirname, inputPath)} (${inputMeta.width}x${inputMeta.height} @ ${inputMeta.fps}fps, ${inputMeta.bitrateMbps}Mbps, ${inputMeta.sizeMb}MB)`);
 
-    // Resolusi output file
+    // Resolusi output file (di dalam folder output/)
     const ext = method === 'quicktime' ? 'mov' : 'mp4';
-    const outputPath = output ? path.resolve(process.cwd(), output) : path.join(__dirname, `output_${method}.${ext}`);
+    const outputPath = output ? path.resolve(process.cwd(), output) : path.join(OUTPUT_DIR, `output_${method}.${ext}`);
     let encodedMeta = null;
 
     if (fs.existsSync(outputPath) && !force) {
-        console.log(`[Cache] Menggunakan output yang sudah ada: ${path.basename(outputPath)} (gunakan --force untuk re-encode)`);
+        console.log(`[Cache] Menggunakan output yang sudah ada: ${path.relative(__dirname, outputPath)} (gunakan --force untuk re-encode)`);
         encodedMeta = getFfprobeMeta(outputPath);
     } else {
         encodedMeta = await encodeVideo(inputPath, method, outputPath);

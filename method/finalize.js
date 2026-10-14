@@ -183,8 +183,7 @@
             if (optionsOrSuffix.mimeType) mimeType = optionsOrSuffix.mimeType;
         }
 
-        // Standardize output filename to (nama file)_hd.mp4 across all methods
-        if (suffix === 'shield' || suffix === 'fps' || suffix === 'binary' || suffix === 'fry' || !suffix) {
+        if (!suffix) {
             suffix = 'hd';
         }
 
@@ -283,6 +282,92 @@
         }
 
         return { url, filename, blob };
+    }
+
+    // Universal Self-Registering TikTok Method Registry
+    const existingItems = (window.TikTokMethods && Array.isArray(window.TikTokMethods._items))
+        ? window.TikTokMethods._items
+        : [];
+
+    const CATEGORY_META = {
+        recommended: {
+            id: 'recommended',
+            labelKey: 'patcher_cat_recommended',
+            defaultLabel: 'Rekomendasi',
+            icon: 'verified',
+            order: 1
+        },
+        backup: {
+            id: 'backup',
+            labelKey: 'patcher_cat_backup',
+            defaultLabel: 'Cadangan',
+            icon: 'history',
+            order: 2
+        }
+    };
+
+    window.TikTokMethods = {
+        _items: [],
+        _categories: CATEGORY_META,
+        register(methodDef) {
+            if (!methodDef || !methodDef.id) return;
+            const normalized = Object.assign({
+                category: 'recommended',
+                order: 99,
+                supportsCompress: true,
+                remuxFaststart: false,
+                requiresUserscript: false,
+                handlesOwn60FpsSlowmo: false,
+                outputOptions: 'hd',
+                aliases: [],
+                descriptions: { id: {}, en: {} }
+            }, methodDef);
+            const idx = this._items.findIndex(m => m.id === normalized.id);
+            if (idx >= 0) {
+                this._items[idx] = normalized;
+            } else {
+                this._items.push(normalized);
+            }
+            this._items.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+        },
+        getAll() {
+            return this._items.slice();
+        },
+        getByCategory(category) {
+            return this._items.filter(m => (m.category || 'recommended') === category);
+        },
+        getCategories() {
+            const catKeys = [];
+            for (const m of this._items) {
+                const c = m.category || 'recommended';
+                if (!catKeys.includes(c)) catKeys.push(c);
+            }
+            if (catKeys.length === 0) return [CATEGORY_META.recommended, CATEGORY_META.backup];
+            return catKeys
+                .map(k => CATEGORY_META[k] || { id: k, labelKey: `patcher_cat_${k}`, defaultLabel: k.toUpperCase(), icon: 'tune', order: 99 })
+                .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+        },
+        getById(id) {
+            if (!id) return this._items[0] || null;
+            const lower = String(id).toLowerCase();
+            return this._items.find(m =>
+                m.id.toLowerCase() === lower ||
+                (Array.isArray(m.aliases) && m.aliases.some(a => String(a).toLowerCase() === lower))
+            ) || null;
+        },
+        getDefault(category) {
+            if (category) {
+                const list = this.getByCategory(category);
+                if (list.length > 0) return list[0];
+            }
+            const rec = this.getByCategory('recommended');
+            if (rec.length > 0) return rec[0];
+            return this._items[0] || null;
+        }
+    };
+
+    if (existingItems.length > 0) {
+        existingItems.forEach(m => window.TikTokMethods.register(m));
     }
 
     // CMT & Global exports

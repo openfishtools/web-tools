@@ -203,7 +203,7 @@ export function UniversalToolRunner({ toolScriptPath }) {
 
         const inputs = {
             videoFile: file,
-            method: 'tbt',
+            method: 'fish',
             compress: 'off'
         };
 

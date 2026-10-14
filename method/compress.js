@@ -267,63 +267,10 @@ async function compressVideo(file, mode, inputBuffer) {
     return rawOutput;
 }
 
-/**
- * Fast stream-copy remux to standardize track order (Video Track 1, Audio Track 2),
- * interleave chunks, remove junk metadata/boxes, and ensure faststart (moov at start).
- * Runs in ~50-100ms with zero re-encoding.
- *
- * @param {File} file - Original user-selected video file
- * @param {ArrayBuffer|Uint8Array} [inputBuffer] - Video bytes
- * @returns {Promise<Uint8Array>} Normalized faststart MP4 bytes
- */
-async function remuxFaststart(file, inputBuffer) {
-    const s = window._tktk;
-    if (!s) throw new Error('TikTok tool state (_tktk) is not initialized.');
-
-    const isReady = await s.loadFFmpegLibraries();
-    if (!isReady) throw new Error('Processing engine failed to load.');
-
-    const { toBlobURL } = window.FFmpegUtil;
-    let ffmpeg = await s.loadFFmpegHelper(null, toBlobURL);
-
-    const buffer = inputBuffer || s.currentFileBuffer;
-    if (!buffer) throw new Error('Video buffer is empty.');
-
-    await ffmpeg.writeFile('input_remux.mp4', new Uint8Array(buffer));
-
-    const command = [
-        '-y', '-i', 'input_remux.mp4',
-        '-map', '0:v:0',
-        '-map', '0:a:0?',
-        '-c', 'copy',
-        '-movflags', '+faststart',
-        'output_remux.mp4'
-    ];
-
-    try {
-        await ffmpeg.exec(command);
-        const remuxedData = await ffmpeg.readFile('output_remux.mp4');
-        try {
-            await ffmpeg.deleteFile('input_remux.mp4');
-            await ffmpeg.deleteFile('output_remux.mp4');
-        } catch (cleanErr) {}
-
-        return new Uint8Array(remuxedData.buffer, remuxedData.byteOffset, remuxedData.byteLength);
-    } catch (err) {
-        try {
-            await ffmpeg.deleteFile('input_remux.mp4');
-            await ffmpeg.deleteFile('output_remux.mp4');
-        } catch (cleanErr) {}
-        throw err;
-    }
-}
-
 window.compressVideo = compressVideo;
-window.remuxFaststart = remuxFaststart;
 
 if (window._tktk) {
     window._tktk.compressVideo = compressVideo;
-    window._tktk.remuxFaststart = remuxFaststart;
 }
 
 })();

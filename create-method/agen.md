@@ -34,43 +34,55 @@ Jika Anda adalah agen AI yang diminta untuk **menganalisis, memodifikasi, atau m
    - `mvhd` harus di-upgrade ke Version 1 (64-bit) dengan durasi tak terhingga `0xFFFFFFFFFFFFFFFF`.
    - Timescale harus diselaraskan secara akurat (misal `48000` disesuaikan dengan audio clock).
 4. **Faststart Requirement**: Seluruh file MP4 harus berada dalam mode `faststart` (atom `moov` diletakkan sebelum atom `mdat`).
+5. **Arsip Metode (`result/` vs `result/Patched/`)**:
+   - Semua metode yang **WORK** disimpan di dalam folder `create-method/result/<methodName>.js`.
+   - Jika sebuah metode sudah ke-patch oleh server ByteDance (gagal mempertahankan kualitas di CDN), pindahkan file metode tersebut ke dalam folder `create-method/result/Patched/<methodName>.js`.
 
 ### B. Konvensi Penulisan Kode (Modularity Standards)
-1. **File Script Mandiri**: Buat file baru di dalam `create-method/<methodName>.js`.
+1. **File Script Mandiri**: Buat file baru di dalam `create-method/result/<methodName>.js` (atau pindahkan ke `create-method/result/Patched/<methodName>.js` apabila sudah ke-patch).
 2. **Standard Exports**:
    ```javascript
    function patchMyMethod(inputMp4Path, outputMp4Path) { ... }
    function patchMyMethodBuffer(inputBuffer) { ... } // Rekomendasi: fungsi in-memory buffer
    module.exports = { patchMyMethod, patchMyMethodBuffer };
    ```
-3. **Registrasi ke `encode.js`**:
-   Tambahkan blok switch case di `encode.js`:
+3. **Registrasi ke `tools/encode.js`**:
+   Tambahkan blok switch case di `tools/encode.js`:
    ```javascript
    if (method === 'my-method') {
-       const { patchMyMethod } = require('./myMethod');
+       const { patchMyMethod } = require(resolveMethodModule('myMethod.js'));
        patchMyMethod(inputFile, outputFile);
        return getFfprobeMeta(outputFile);
    }
    ```
 4. **Credential & Config**:
-   Selalu gunakan modul bersama `config.js` (`const config = require('./config');`).
+   Selalu gunakan modul bersama `tools/config.js` (`const config = require('./config');`).
    HANYA butuh satu variabel `ZERNIO_API_KEY` di dalam `.env`. Semua data akun (profile ID, account ID, username) di-resolve otomatis via `config.resolveTikTokAccount()`.
 
 ---
 
-## 🏗️ 3. Arsitektur Pipeline Pengujian (`create-method/`)
+## 🏗️ 3. Arsitektur Folder & Pipeline Pengujian (`create-method/`)
 
-Semua script dibangun secara mandiri dan modular:
-
-- **Video Input (`--input <path>`)**: File video uji coba (mendukung file `.mp4` atau `.mov` beresolusi tinggi, misal 1080x1920 60fps; default fallback ke `input.mp4` atau file video apa saja di folder).
-- **`.env`** (dan `.env.example`): Kredensial `ZERNIO_API_KEY` (bersifat rahasia, diblokir oleh `.gitignore`).
-- **`config.js`**: Loader konfigurasi otomatis dari `.env` dan auto-resolver akun TikTok dari Zernio API.
-- **`encode.js`**: Modul pembungkus berbagai engine encoder & patcher atom.
-- **`streamshield.js`**: Engine manipulasi atom MP4 (StreamShield: Track 3 Micro-Shield).
-- **`fishV2.js`**: Engine manipulasi atom MP4 (FishV2: Murni 2-Track Dual-Anchor Time-Trap).
-- **`upload.js`**: Engine uploader ke cloud storage via R2 Presigned URL dan pembuatan post TikTok publik dengan rekonsiliasi URL otomatis.
-- **`analyze.js`**: Engine inspeksi atom stream CDN live melalui endpoint live `https://cutefish.my.id/api/tiktok-resolve`.
-- **`run.js`**: Master orchestrator (Encode $\rightarrow$ Upload $\rightarrow$ Wait Publish $\rightarrow$ Live CDN Analysis $\rightarrow$ Print Comparison Table).
+```text
+create-method/
+├── .env                        # Kredensial ZERNIO_API_KEY (rahasia)
+├── .env.example                # Template kredensial
+├── README.md                   # Dokumentasi penggunaan
+├── agen.md                     # Pedoman AI & log riset teknis
+├── run.js                      # Master CLI Orchestrator
+├── input/                      # Folder khusus video uji coba (input.mp4)
+├── output/                     # Folder khusus hasil video ter-patch (output_<method>.mp4)
+├── tools/                      # Modul utilitas pipeline
+│   ├── config.js               # Auto-loader .env & Zernio account resolver
+│   ├── encode.js               # Engine wrapper & resolver method
+│   ├── upload.js               # Cloud storage & TikTok publisher via Zernio API
+│   └── analyze.js              # Live CDN stream inspector (/api/tiktok-resolve & /api/tiktok-fps)
+└── result/                     # Folder kumpulan method
+    ├── fishV3.js               # ACTIVE WORKING METHOD (FishV3)
+    └── Patched/                # Arsip method yang sudah ke-patch oleh ByteDance
+        ├── fishV2.js           # Legacy FishV2 (Patched)
+        └── streamshield.js     # Legacy StreamShield / FishV1 (Patched)
+```
 
 ---
 
@@ -84,8 +96,9 @@ Berikut data empiris dari hasil pengujian nyata terhadap pipeline server ByteDan
 | 2 | **`quicktime`** | Apple QuickTime (`.mov`) Faststart | 576 x 1024 | 30 FPS | 2.76 Mbps | 5.92 MB | ❌ **GAGAL** (Dikompresi ke SD) |
 | 3 | **`binary`** | Old Binary Patcher (Dual Audio x9 Fake Samples) | 1080 x 1920 | 60 FPS | 23.97 Mbps | 51.44 MB | 🏆 **SUKSES** (Tapi bloat sample audio) |
 | 4 | **`vbr-target`** | VBR Spoof (32-bit `mvhd` Duration to 1.8M) | 576 x 1024 | 30 FPS | 2.76 Mbps | 5.92 MB | ❌ **GAGAL** (Durasi finite tetap ditranscode) |
-| 5 | **`stream-shield`** | **Cutefish StreamShield (Micro-Shield Trap)** | **1080 x 1920** | **60 FPS** | **23.93 Mbps** | **51.34 MB** | 🏆 **SUKSES** (FISH v1: 3-Track Micro-Shield) |
-| 6 | **`fish-v2`** | **NEW: Cutefish FishV2 (Dual-Anchor Time-Trap)** | **1080 x 1920** | **60.05 FPS** | **23.93 Mbps** | **51.34 MB** | 🏆🏆 **ULTIMATE WINNER** (FISH v2: Murni 2-Track, In-Track Zero-Delta) |
+| 5 | **`stream-shield`** | **Cutefish StreamShield (`streamshield.js.patched`)** | 1080 x 1920 | 60 FPS | 23.93 Mbps | 51.34 MB | ❌ **PATCHED** (FISH v1: 3-Track Micro-Shield) |
+| 6 | **`fish-v2`** | **Cutefish FishV2 (`fishV2.js.patched`)** | 1080 x 1920 | 60.05 FPS | 23.93 Mbps | 51.34 MB | ❌ **PATCHED** (FISH v2: Murni 2-Track, In-Track Zero-Delta) |
+| 7 | **`fish-v3`** | **NEW: Cutefish FishV3 (`fishV3.js`)** | **1080 x 1920** | **60.055 FPS** | **17.69 Mbps** | **37.97 MB** | 🏆🏆 **ULTIMATE WINNER** (FISH v3: Rescaled 48k Clock + Zero-Offset CTTS + Track 3 Trap) |
 
 ---
 

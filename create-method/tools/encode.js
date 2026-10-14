@@ -2,12 +2,30 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+const ROOT_DIR = path.join(__dirname, '..');
+const RESULT_DIR = path.join(ROOT_DIR, 'result');
+const PATCHED_DIR = path.join(RESULT_DIR, 'Patched');
+
 function getFfmpegPath() {
     try {
         const p = execSync('which ffmpeg').toString().trim();
         if (p) return p;
     } catch (_) {}
     return 'ffmpeg';
+}
+
+function resolveMethodModule(fileName) {
+    const base = fileName.endsWith('.js') ? fileName : `${fileName}.js`;
+    const candidates = [
+        path.join(RESULT_DIR, base),
+        path.join(PATCHED_DIR, base),
+        path.join(PATCHED_DIR, `${base}.patched`),
+        path.join(ROOT_DIR, base)
+    ];
+    for (const p of candidates) {
+        if (fs.existsSync(p)) return p;
+    }
+    throw new Error(`Method file "${base}" not found in result/ or result/Patched/`);
 }
 
 function getFfprobeMeta(filePath) {
@@ -66,11 +84,11 @@ async function encodeVideo(inputFile, method, outputFile) {
 
     if (method === 'binary') {
         global.window = global;
-        const p1 = path.join(__dirname, '../method/item/binarypatch.js');
-        const p2 = path.join(__dirname, '../scripts/Tools/Method/binarypatch.js');
+        const p1 = path.join(ROOT_DIR, '../method/item/binary.js');
+        const p2 = path.join(ROOT_DIR, '../method/item/binarypatch.js');
         if (fs.existsSync(p1)) require(p1);
         else if (fs.existsSync(p2)) require(p2);
-        else throw new Error('binarypatch.js not found in method/item/');
+        else throw new Error('binary.js not found in ../method/item/');
         const inBuffer = fs.readFileSync(inputFile);
         const arrayBuf = inBuffer.buffer.slice(inBuffer.byteOffset, inBuffer.byteOffset + inBuffer.byteLength);
         const patched = global.window.patchMp4BinaryMethod(arrayBuf);
@@ -80,16 +98,23 @@ async function encodeVideo(inputFile, method, outputFile) {
     }
 
     if (method === 'stream-shield') {
-        const { patchStreamShield } = require('./streamshield');
+        const { patchStreamShield } = require(resolveMethodModule('streamshield.js'));
         patchStreamShield(inputFile, outputFile);
         console.log(`[Encode] stream-shield: ${outputFile}`);
         return getFfprobeMeta(outputFile);
     }
 
     if (method === 'fish-v2') {
-        const { patchFishV2 } = require('./fishV2');
+        const { patchFishV2 } = require(resolveMethodModule('fishV2.js'));
         patchFishV2(inputFile, outputFile);
         console.log(`[Encode] fish-v2: ${outputFile}`);
+        return getFfprobeMeta(outputFile);
+    }
+
+    if (method === 'fish-v3') {
+        const { patchFishV3 } = require(resolveMethodModule('fishV3.js'));
+        patchFishV3(inputFile, outputFile);
+        console.log(`[Encode] fish-v3: ${outputFile}`);
         return getFfprobeMeta(outputFile);
     }
 
@@ -98,5 +123,6 @@ async function encodeVideo(inputFile, method, outputFile) {
 
 module.exports = {
     encodeVideo,
-    getFfprobeMeta
+    getFfprobeMeta,
+    resolveMethodModule
 };
