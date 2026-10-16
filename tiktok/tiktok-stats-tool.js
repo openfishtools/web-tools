@@ -518,13 +518,30 @@
             startStreamProgress();
             let videoMeta = await analyseVideoMetadataFromUrl(streamUrl);
             if ((!videoMeta || (!videoMeta.fps && !videoMeta.width)) && metadata && metadata.id) {
-                const proxyStreamUrl = `https://www.tikwm.com/video/media/play/${metadata.id}.mp4`;
-                if (proxyStreamUrl !== streamUrl) {
-                    const fallbackMeta = await analyseVideoMetadataFromUrl(proxyStreamUrl);
+                const fallbackStreamUrl = `https://www.tikwm.com/video/media/play/${metadata.id}.mp4`;
+                if (fallbackStreamUrl !== streamUrl) {
+                    const fallbackMeta = await analyseVideoMetadataFromUrl(fallbackStreamUrl);
                     if (fallbackMeta && (fallbackMeta.fps || fallbackMeta.width)) {
                         videoMeta = fallbackMeta;
                     }
                 }
+            }
+            if ((!videoMeta || (!videoMeta.fps && !videoMeta.width)) && isFromCache) {
+                try {
+                    const freshResponse = await fetch(`${API_URL}/tiktok-resolve?url=${encodeURIComponent(pageUrl)}&nocache=1`);
+                    if (freshResponse.ok) {
+                        const freshMetadata = await freshResponse.json();
+                        if (freshMetadata && (freshMetadata.play || freshMetadata.hdplay)) {
+                            metadata = freshMetadata;
+                            cacheMap.set(pageUrl, freshMetadata);
+                            updateCacheBadge(false);
+                            const freshMeta = await analyseVideoMetadataFromUrl(freshMetadata.play || freshMetadata.hdplay);
+                            if (freshMeta && (freshMeta.fps || freshMeta.width)) {
+                                videoMeta = freshMeta;
+                            }
+                        }
+                    }
+                } catch (_) {}
             }
             completeStreamProgress();
 
