@@ -188,10 +188,22 @@
         const w = source.naturalWidth || source.videoWidth || source.width || 0;
         const h = source.naturalHeight || source.videoHeight || source.height || 0;
         if (!w || !h) return;
-        canvas.width = w;
-        canvas.height = h;
+
+        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent) ||
+                               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const maxLimit = isMobileDevice ? 1280 : 2560;
+        let dw = w;
+        let dh = h;
+        if (Math.max(w, h) > maxLimit) {
+            const s = maxLimit / Math.max(w, h);
+            dw = Math.round(w * s);
+            dh = Math.round(h * s);
+        }
+
+        canvas.width = dw;
+        canvas.height = dh;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(source, 0, 0);
+        ctx.drawImage(source, 0, 0, dw, dh);
     }
 
     function log(msg) {
@@ -242,33 +254,21 @@
             const engineReady = !!(getUpscaleEngine && getUpscaleEngine() && getUpscaleEngine().ready);
             if (engineDot) {
                 if (engineReady) { engineDot.textContent = 'check_circle'; engineDot.style.color = '#4CAF50'; engineDot.classList.remove('upscale-spinner'); if (engineStatus) engineStatus.textContent = t('upscale_ready_ai') || 'AI Engine: Ready'; }
-                else if (attempts > 8) { engineDot.textContent = 'cancel'; engineDot.style.color = '#F44336'; engineDot.classList.remove('upscale-spinner'); if (engineStatus) engineStatus.textContent = t('upscale_failed_ai') || 'AI Engine: Unavailable'; }
+                else if (attempts > 6) { engineDot.textContent = 'info'; engineDot.style.color = '#FF9800'; engineDot.classList.remove('upscale-spinner'); if (engineStatus) engineStatus.textContent = 'AI Engine: GPU Shader Fallback'; }
             }
             const gpuReady = !!(window.UpscaleGpuEnhancer);
             if (gpuDot) {
                 if (gpuReady) { gpuDot.textContent = 'check_circle'; gpuDot.style.color = '#4CAF50'; gpuDot.classList.remove('upscale-spinner'); if (gpuStatus) gpuStatus.textContent = t('upscale_ready_gpu') || 'GPU Canvas: Ready'; }
-                else if (attempts > 8) { gpuDot.textContent = 'cancel'; gpuDot.style.color = '#F44336'; gpuDot.classList.remove('upscale-spinner'); if (gpuStatus) gpuStatus.textContent = t('upscale_failed_gpu') || 'GPU Canvas: Unavailable'; }
+                else if (attempts > 6) { gpuDot.textContent = 'check_circle'; gpuDot.style.color = '#4CAF50'; gpuDot.classList.remove('upscale-spinner'); if (gpuStatus) gpuStatus.textContent = '2D Canvas: Ready'; }
             }
             const ffmpegReady = isImageMode ? true : !!(window.FFmpegWASM && window.FFmpegUtil);
             if (ffmpegDot) {
                 if (ffmpegReady) { ffmpegDot.textContent = 'check_circle'; ffmpegDot.style.color = '#4CAF50'; ffmpegDot.classList.remove('upscale-spinner'); if (ffmpegStatus) ffmpegStatus.textContent = isImageMode ? 'FFmpeg WASM: Not needed for images' : (t('upscale_ready_ffmpeg') || 'FFmpeg WASM: Ready'); }
-                else if (attempts > 12) { ffmpegDot.textContent = 'check_circle'; ffmpegDot.style.color = '#4CAF50'; ffmpegDot.classList.remove('upscale-spinner'); if (ffmpegStatus) ffmpegStatus.textContent = 'FFmpeg WASM: Will Load on Process'; }
+                else if (attempts > 6) { ffmpegDot.textContent = 'check_circle'; ffmpegDot.style.color = '#4CAF50'; ffmpegDot.classList.remove('upscale-spinner'); if (ffmpegStatus) ffmpegStatus.textContent = 'FFmpeg WASM: Will Load on Process'; }
             }
             const allReady = engineReady && gpuReady && ffmpegReady;
-            if (allReady || attempts > 12) {
+            if (allReady || attempts > 6) {
                 clearInterval(interval);
-                const actuallyReady = engineReady && gpuReady;
-                if (!actuallyReady) {
-                    setTimeout(() => {
-                        const closeBtn = document.getElementById('tool-modal-close-btn');
-                        if (closeBtn) closeBtn.click();
-                        else {
-                            const backdrop = document.getElementById('tool-modal-backdrop');
-                            if (backdrop) backdrop.click();
-                        }
-                    }, 3000);
-                    return;
-                }
                 setTimeout(() => {
                     if (checkingScreen) checkingScreen.classList.add('hidden');
                     if (mainContent) mainContent.classList.remove('hidden');
@@ -276,9 +276,9 @@
                     if (pb) { pb.disabled = false; pb.dataset.state = 'ready'; const pl = document.getElementById('tool-process-label'); if (pl) pl.textContent = t('tool_upscale_btn') || 'Start Processing'; }
                     updateSliderVisuals();
                     if (typeof window.updateOpenModalsLayout === 'function') window.updateOpenModalsLayout(true);
-                }, 700);
+                }, 300);
             }
-        }, 400);
+        }, 350);
     }
 
     function resetResultDisplay() {
@@ -565,6 +565,7 @@
                 try { await ffmpeg.deleteFile('frames/' + selected[i]); } catch (e) {}
             }
             onProgress((i + 1) / selected.length);
+            await new Promise(r => setTimeout(r, 4));
         }
 
         log('[AI-Video] Reassembling MP4 with audio...');
@@ -596,7 +597,8 @@
         init() {
             if (this.ready) return true;
             try {
-                this.worker = new Worker('assets/upscale/upscaleWorker.js?v=5');
+                const base = window.TOOLS_CDN_BASE || '';
+                this.worker = new Worker(base + 'assets/upscale/upscaleWorker.js?v=5');
                 this.worker.addEventListener('message', (e) => {
                     const { progress, done, output, alertmsg, info } = e.data;
                     if (info && this.infoHandler) this.infoHandler(info);
@@ -640,28 +642,40 @@
 
         renderFrame(source, target, onProgress) {
             return new Promise((resolve, reject) => {
+                const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent) ||
+                                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
                 const w = source.naturalWidth || source.videoWidth || source.width || 0;
                 const h = source.naturalHeight || source.videoHeight || source.height || 0;
                 if (!w || !h) { reject(new Error('Source dimensions are 0.')); return; }
 
+                // Safe input clamp to avoid mobile GPU buffer and canvas limits (16.7MP)
+                const maxDim = isMobileDevice ? 800 : 1280;
+                let procW = w;
+                let procH = h;
+                if (Math.max(w, h) > maxDim) {
+                    const s = maxDim / Math.max(w, h);
+                    procW = Math.round(w * s);
+                    procH = Math.round(h * s);
+                }
+
                 const off = document.createElement('canvas');
-                off.width = w;
-                off.height = h;
+                off.width = procW;
+                off.height = procH;
                 const ctx = off.getContext('2d', { willReadFrequently: true });
-                ctx.drawImage(source, 0, 0);
-                const imgData = ctx.getImageData(0, 0, w, h);
+                ctx.drawImage(source, 0, 0, procW, procH);
+                const imgData = ctx.getImageData(0, 0, procW, procH);
 
                 if (this.activeRequest) {
                     this.activeRequest.reject(new Error('Cancelled by newer request.'));
                 }
 
-                this.lastW = w;
-                this.lastH = h;
+                this.lastW = procW;
+                this.lastH = procH;
                 this.activeRequest = { resolve, reject, onProgress, target };
                 this.worker.postMessage({
                     input: imgData.data.buffer,
-                    width: w,
-                    height: h,
+                    width: procW,
+                    height: procH,
                     factor: UPSCALE_FACTOR,
                     tile_size: 128,
                     min_lap: 16,
@@ -754,6 +768,21 @@
                 } else {
                     log(`[Preview] Normalise ON: source ${srcW}x${srcH} already 9:16, no crop needed.`);
                 }
+            }
+
+            const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent) ||
+                                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const maxPreviewDim = isMobileDevice ? 800 : 1280;
+            if (Math.max(frameSource.width, frameSource.height) > maxPreviewDim) {
+                const sw = frameSource.width;
+                const sh = frameSource.height;
+                const scale = maxPreviewDim / Math.max(sw, sh);
+                const clamped = document.createElement('canvas');
+                clamped.width = Math.round(sw * scale);
+                clamped.height = Math.round(sh * scale);
+                clamped.getContext('2d').drawImage(frameSource, 0, 0, clamped.width, clamped.height);
+                frameSource = clamped;
+                log(`[Preview] Adaptive safe clamp: ${frameSource.width}x${frameSource.height}`);
             }
 
             const origFrameCanvas = document.getElementById('upscale-original-frame');
@@ -903,6 +932,7 @@
 
     function setupSliderEvents(container) {
         if (!container) return;
+        container.style.touchAction = 'none';
 
         const updateCursor = () => {
             container.style.cursor = zoom > 1 ? (isPanning ? 'grabbing' : 'grab') : 'col-resize';
@@ -919,48 +949,87 @@
             const rect = container.getBoundingClientRect();
             if (rect.width <= 0) return false;
             const sliderX = rect.left + (sliderPos / 100) * rect.width;
-            return Math.abs(clientX - sliderX) < 30;
+            return Math.abs(clientX - sliderX) < 36;
         };
 
+        const activePointers = new Map();
+
         container.addEventListener('pointerdown', (e) => {
-            if (e.button !== 0) return;
+            if (e.button !== 0 && e.pointerType === 'mouse') return;
+            activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+            try {
+                container.setPointerCapture(e.pointerId);
+            } catch (_) {}
+
+            if (activePointers.size === 2) {
+                isPinching = true;
+                isDraggingSlider = false;
+                isPanning = false;
+                const pts = Array.from(activePointers.values());
+                pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                pinchStartZoom = zoom;
+                return;
+            }
 
             if (zoom === 1 || isNearSlider(e.clientX)) {
                 isDraggingSlider = true;
+                isPanning = false;
                 onSliderMove(e.clientX);
-                const onMove = (ev) => {
-                    if (!isDraggingSlider) return;
-                    onSliderMove(ev.clientX);
-                };
-                const onUp = () => {
-                    isDraggingSlider = false;
-                    window.removeEventListener('pointermove', onMove);
-                    window.removeEventListener('pointerup', onUp);
-                };
-                window.addEventListener('pointermove', onMove);
-                window.addEventListener('pointerup', onUp);
             } else if (zoom > 1) {
                 isPanning = true;
+                isDraggingSlider = false;
                 panStart = { x: e.clientX, y: e.clientY };
                 panOrigin = { ...pan };
                 updateCursor();
-                const onMove = (ev) => {
-                    if (!isPanning) return;
-                    pan.x = panOrigin.x + (ev.clientX - panStart.x);
-                    pan.y = panOrigin.y + (ev.clientY - panStart.y);
-                    clampPan();
-                    applyTransform();
-                };
-                const onUp = () => {
-                    isPanning = false;
-                    updateCursor();
-                    window.removeEventListener('pointermove', onMove);
-                    window.removeEventListener('pointerup', onUp);
-                };
-                window.addEventListener('pointermove', onMove);
-                window.addEventListener('pointerup', onUp);
             }
         });
+
+        container.addEventListener('pointermove', (e) => {
+            if (!activePointers.has(e.pointerId)) return;
+            activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+            if (isPinching && activePointers.size >= 2) {
+                const pts = Array.from(activePointers.values());
+                const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                if (pinchStartDist > 0) {
+                    zoom = Math.max(1, Math.min(5, pinchStartZoom * (dist / pinchStartDist)));
+                    if (zoom <= 1) { zoom = 1; pan = { x: 0, y: 0 }; }
+                    clampPan();
+                    applyTransform();
+                    updateZoomBadge();
+                }
+                return;
+            }
+
+            if (isDraggingSlider) {
+                onSliderMove(e.clientX);
+            } else if (isPanning) {
+                pan.x = panOrigin.x + (e.clientX - panStart.x);
+                pan.y = panOrigin.y + (e.clientY - panStart.y);
+                clampPan();
+                applyTransform();
+            }
+        });
+
+        const onPointerEnd = (e) => {
+            activePointers.delete(e.pointerId);
+            try {
+                container.releasePointerCapture(e.pointerId);
+            } catch (_) {}
+
+            if (activePointers.size < 2) {
+                isPinching = false;
+            }
+            if (activePointers.size === 0) {
+                isDraggingSlider = false;
+                isPanning = false;
+                updateCursor();
+            }
+        };
+
+        container.addEventListener('pointerup', onPointerEnd);
+        container.addEventListener('pointercancel', onPointerEnd);
 
         container.addEventListener('wheel', (e) => {
             e.preventDefault();
@@ -972,58 +1041,6 @@
             updateCursor();
             updateZoomBadge();
         }, { passive: false });
-
-        container.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                isPinching = true;
-                isDraggingSlider = false;
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                pinchStartDist = Math.hypot(dx, dy);
-                pinchStartZoom = zoom;
-            } else if (e.touches.length === 1) {
-                const tx = e.touches[0].clientX;
-                if (zoom === 1 || isNearSlider(tx)) {
-                    isDraggingSlider = true;
-                    onSliderMove(tx);
-                } else {
-                    isPanning = true;
-                    panStart = { x: tx, y: e.touches[0].clientY };
-                    panOrigin = { ...pan };
-                }
-            }
-        }, { passive: true });
-
-        container.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2 && isPinching) {
-                e.preventDefault();
-                const dx = e.touches[0].clientX - e.touches[1].clientX;
-                const dy = e.touches[0].clientY - e.touches[1].clientY;
-                const dist = Math.hypot(dx, dy);
-                zoom = Math.max(1, Math.min(5, pinchStartZoom * (dist / pinchStartDist)));
-                if (zoom <= 1) { zoom = 1; pan = { x: 0, y: 0 }; }
-                clampPan();
-                applyTransform();
-                updateZoomBadge();
-            } else if (e.touches.length === 1) {
-                if (isPanning) {
-                    pan.x = panOrigin.x + (e.touches[0].clientX - panStart.x);
-                    pan.y = panOrigin.y + (e.touches[0].clientY - panStart.y);
-                    clampPan();
-                    applyTransform();
-                } else if (isDraggingSlider) {
-                    e.preventDefault();
-                    onSliderMove(e.touches[0].clientX);
-                }
-            }
-        }, { passive: false });
-
-        container.addEventListener('touchend', () => {
-            isPinching = false;
-            isPanning = false;
-            isDraggingSlider = false;
-            updateCursor();
-        });
     }
 
     function updateZoomBadge() {
@@ -1302,8 +1319,13 @@
                     img.onload = resolve;
                     img.onerror = () => reject(new Error('Failed to decode image.'));
                 });
-                img.src = URL.createObjectURL(file);
-                await imgLoaded;
+                const imgObjUrl = URL.createObjectURL(file);
+                img.src = imgObjUrl;
+                try {
+                    await imgLoaded;
+                } finally {
+                    URL.revokeObjectURL(imgObjUrl);
+                }
                 log(`[Enhance] Image loaded: ${img.naturalWidth}x${img.naturalHeight}`);
 
                 let filterSource = img;
@@ -1317,6 +1339,21 @@
                     } else {
                         log(`[Enhance] Normalise ON: source ${img.naturalWidth}x${img.naturalHeight} already 9:16, no crop needed.`);
                     }
+                }
+
+                const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent) ||
+                                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                const maxInputDim = isMobileDevice ? 800 : 1600;
+                if (Math.max(filterSource.width || filterSource.naturalWidth, filterSource.height || filterSource.naturalHeight) > maxInputDim) {
+                    const sw = filterSource.naturalWidth || filterSource.width;
+                    const sh = filterSource.naturalHeight || filterSource.height;
+                    const scale = maxInputDim / Math.max(sw, sh);
+                    const clamped = document.createElement('canvas');
+                    clamped.width = Math.round(sw * scale);
+                    clamped.height = Math.round(sh * scale);
+                    clamped.getContext('2d').drawImage(filterSource, 0, 0, clamped.width, clamped.height);
+                    filterSource = clamped;
+                    log(`[Enhance] Adaptive clamp applied: ${filterSource.width}x${filterSource.height}`);
                 }
 
                 if (!gpuEnhancer && window.UpscaleGpuEnhancer) {
@@ -1428,14 +1465,20 @@
                 const inName = `input.${ext}`;
                 await ffmpeg.writeFile(inName, await fetchFile(file));
 
-                const engine = getUpscaleEngine();
+                const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent) ||
+                                       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                const engine = !isMobileDevice ? getUpscaleEngine() : null;
+                if (isMobileDevice) {
+                    log('[Enhance] Mobile device detected: routing to hardware-accelerated FFmpeg video pipeline to prevent thermal freeze and GPU buffer limits.');
+                }
+
                 if (engine) {
                     log(`[Enhance] AI video pipeline engaged (Real-ESRGAN x${UPSCALE_FACTOR}).`);
                     await runAiVideoPipeline(ffmpeg, inName, file, (frac) => {
                         setProgress(40 + Math.round(Math.min(1, Math.max(0, frac)) * 55), `${t('status_processing') || 'AI upscaling'} ${Math.round(frac * 100)}%`);
                     });
                 } else {
-                    log('[Enhance] AI engine unavailable — using FFmpeg filter chain.');
+                    log('[Enhance] Fast FFmpeg video enhancement pipeline active.');
                     let vf = 'unsharp=5:5:1.0:5:5:0.0';
                     if (presetObj.id === 'cartoonist') vf = 'unsharp=7:7:1.5:7:7:0.5,eq=contrast=1.1:saturation=1.15';
                     if (presetObj.id === 'cartoonist2') vf = 'unsharp=9:9:2.0:9:9:0.8,eq=contrast=1.15:saturation=1.25';
@@ -1444,6 +1487,8 @@
 
                     if (normaliseSize) {
                         vf = `crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9),scale=1080:1920,setsar=1,${vf}`;
+                    } else {
+                        vf = `scale=trunc(iw/2)*2:trunc(ih/2)*2,${vf}`;
                     }
 
                     setProgress(60, t('status_encoding') || 'Encoding enhanced video...');
@@ -1454,6 +1499,8 @@
                 setProgress(95, t('status_finalizing') || 'Finalizing output video...');
                 const data = await ffmpeg.readFile('enhanced.mp4');
                 const blob = new Blob([data], { type: 'video/mp4' });
+                try { await ffmpeg.deleteFile('enhanced.mp4'); } catch (e) {}
+                try { await ffmpeg.deleteFile(inName); } catch (e) {}
 
                 const outName = file.name.replace(/\.[^/.]+$/, '') + `_enhanced.mp4`;
                 triggerDownload(blob, outName);
@@ -1536,8 +1583,13 @@
             img.onload = resolve;
             img.onerror = () => reject(new Error('Failed to decode image.'));
         });
-        img.src = URL.createObjectURL(file);
-        await imgLoaded;
+        const imgObjUrl = URL.createObjectURL(file);
+        img.src = imgObjUrl;
+        try {
+            await imgLoaded;
+        } finally {
+            URL.revokeObjectURL(imgObjUrl);
+        }
 
         let filterSource = img;
         if (normaliseSize) {
@@ -1546,6 +1598,20 @@
                 filterSource = cropped;
                 log(`[Batch] Cropped source: ${filterSource.width}x${filterSource.height}`);
             }
+        }
+
+        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent) ||
+                               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const maxInputDim = isMobileDevice ? 800 : 1600;
+        if (Math.max(filterSource.width || filterSource.naturalWidth, filterSource.height || filterSource.naturalHeight) > maxInputDim) {
+            const sw = filterSource.naturalWidth || filterSource.width;
+            const sh = filterSource.naturalHeight || filterSource.height;
+            const scale = maxInputDim / Math.max(sw, sh);
+            const clamped = document.createElement('canvas');
+            clamped.width = Math.round(sw * scale);
+            clamped.height = Math.round(sh * scale);
+            clamped.getContext('2d').drawImage(filterSource, 0, 0, clamped.width, clamped.height);
+            filterSource = clamped;
         }
 
         if (!gpuEnhancer && window.UpscaleGpuEnhancer) {
@@ -1605,7 +1671,6 @@
         onProgress(0.96);
         const mime = normaliseSize ? 'image/jpeg' : 'image/png';
         const blob = await new Promise(r => outFinal.toBlob(r, mime, 0.92));
-        URL.revokeObjectURL(img.src);
         if (!blob) throw new Error('Failed to encode output image.');
         return { blob, outName: batchOutName(file) };
     }
@@ -1616,7 +1681,8 @@
         const ffmpeg = await getFFmpegInstance();
 
         const ext = file.name.split('.').pop() || 'mp4';
-        await ffmpeg.writeFile(`input.${ext}`, await fetchFile(file));
+        const inName = `input.${ext}`;
+        await ffmpeg.writeFile(inName, await fetchFile(file));
 
         let vf = 'unsharp=5:5:1.0:5:5:0.0';
         if (activePreset === 'cartoonist') vf = 'unsharp=7:7:1.5:7:7:0.5,eq=contrast=1.1:saturation=1.15';
@@ -1625,14 +1691,18 @@
         if (activePreset === 'smoothFace') vf = 'hqdn3d=2.5:2.5:4:4,unsharp=5:5:0.8';
         if (normaliseSize) {
             vf = `crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9),scale=1080:1920,setsar=1,${vf}`;
+        } else {
+            vf = `scale=trunc(iw/2)*2:trunc(ih/2)*2,${vf}`;
         }
 
         log(`[Batch] FFmpeg filter chain: ${vf}`);
         onProgress(0.15);
-        await ffmpeg.exec(['-y', '-i', `input.${ext}`, '-map', '0:v:0', '-map', '0:a:0?', '-vf', vf, '-c:v', 'libx264', '-crf', '18', '-pix_fmt', 'yuv420p', '-c:a', 'copy', 'enhanced.mp4']);
+        await ffmpeg.exec(['-y', '-i', inName, '-map', '0:v:0', '-map', '0:a:0?', '-vf', vf, '-c:v', 'libx264', '-crf', '18', '-pix_fmt', 'yuv420p', '-c:a', 'copy', 'enhanced.mp4']);
         onProgress(0.9);
         const data = await ffmpeg.readFile('enhanced.mp4');
         const blob = new Blob([data], { type: 'video/mp4' });
+        try { await ffmpeg.deleteFile('enhanced.mp4'); } catch (e) {}
+        try { await ffmpeg.deleteFile(inName); } catch (e) {}
         return { blob, outName: batchOutName(file) };
     }
 

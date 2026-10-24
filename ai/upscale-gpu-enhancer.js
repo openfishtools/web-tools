@@ -227,8 +227,22 @@ class GpuEnhancer {
 
   _upload(source) {
     const gl = this.gl;
-    const w = source.naturalWidth || source.videoWidth || source.width;
-    const h = source.naturalHeight || source.videoHeight || source.height;
+    let w = source.naturalWidth || source.videoWidth || source.width;
+    let h = source.naturalHeight || source.videoHeight || source.height;
+
+    const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
+    let uploadSource = source;
+    if (w > maxTex || h > maxTex) {
+      const scale = maxTex / Math.max(w, h);
+      w = Math.floor(w * scale);
+      h = Math.floor(h * scale);
+      const tmp = document.createElement('canvas');
+      tmp.width = w;
+      tmp.height = h;
+      tmp.getContext('2d').drawImage(source, 0, 0, w, h);
+      uploadSource = tmp;
+    }
+
     if (this.w !== w || this.h !== h) {
       this.w = w;
       this.h = h;
@@ -236,7 +250,7 @@ class GpuEnhancer {
     }
     gl.bindTexture(gl.TEXTURE_2D, this.srcTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, uploadSource);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     return { w, h };
   }
@@ -276,38 +290,47 @@ class GpuEnhancer {
       ctx.drawImage(source, 0, 0);
       return false;
     }
-    const { w, h } = this._upload(source);
-    const [f0, f1] = this.fbos;
-    const raw = this.srcTex;
-    const texel = [1 / w, 1 / h];
-    let cur = raw;
-    if (params.denoise > 0) {
-      this._draw(this.progs.denoise, { uTex: { tex: cur, unit: 0 }, uTexel: texel, uStrength: params.denoise }, f0);
-      cur = f0.tex;
+    try {
+      const { w, h } = this._upload(source);
+      const [f0, f1] = this.fbos;
+      const raw = this.srcTex;
+      const texel = [1 / w, 1 / h];
+      let cur = raw;
+      if (params.denoise > 0) {
+        this._draw(this.progs.denoise, { uTex: { tex: cur, unit: 0 }, uTexel: texel, uStrength: params.denoise }, f0);
+        cur = f0.tex;
+      }
+      const outFbo = cur === raw ? f0 : f1;
+      this._draw(this.progs.enhance, {
+        uOrig: { tex: raw, unit: 0 },
+        uTex: { tex: cur, unit: 1 },
+        uTexel: texel,
+        sharpen: params.sharpen,
+        unsharpAmount: params.unsharpAmount,
+        unsharpRadius: params.unsharpRadius,
+        brightness: params.brightness,
+        contrast: params.contrast,
+        shadowsVal: params.shadows,
+        hueShift: params.hue,
+        saturationShift: params.saturation
+      }, outFbo);
+      cur = outFbo.tex;
+      this.canvas.width = w;
+      this.canvas.height = h;
+      this._draw(this.progs.copy, { uTex: { tex: cur, unit: 0 } }, null);
+      const ctx = targetCanvas.getContext('2d');
+      targetCanvas.width = w;
+      targetCanvas.height = h;
+      ctx.drawImage(this.canvas, 0, 0);
+      return true;
+    } catch (err) {
+      console.warn('[UpscaleGpuEnhancer] WebGL processing error, using fallback:', err);
+      const ctx = targetCanvas.getContext('2d');
+      targetCanvas.width = source.naturalWidth || source.videoWidth || source.width;
+      targetCanvas.height = source.naturalHeight || source.videoHeight || source.height;
+      ctx.drawImage(source, 0, 0);
+      return false;
     }
-    const outFbo = cur === raw ? f0 : f1;
-    this._draw(this.progs.enhance, {
-      uOrig: { tex: raw, unit: 0 },
-      uTex: { tex: cur, unit: 1 },
-      uTexel: texel,
-      sharpen: params.sharpen,
-      unsharpAmount: params.unsharpAmount,
-      unsharpRadius: params.unsharpRadius,
-      brightness: params.brightness,
-      contrast: params.contrast,
-      shadowsVal: params.shadows,
-      hueShift: params.hue,
-      saturationShift: params.saturation
-    }, outFbo);
-    cur = outFbo.tex;
-    this.canvas.width = w;
-    this.canvas.height = h;
-    this._draw(this.progs.copy, { uTex: { tex: cur, unit: 0 } }, null);
-    const ctx = targetCanvas.getContext('2d');
-    targetCanvas.width = w;
-    targetCanvas.height = h;
-    ctx.drawImage(this.canvas, 0, 0);
-    return true;
   }
 }
 

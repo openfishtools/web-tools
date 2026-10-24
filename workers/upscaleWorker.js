@@ -266,10 +266,14 @@ self.addEventListener("message", async (e) => {
       for (const targetUrl of urlsToTry) {
         try {
           console.log("🚀 [Upscale Model] Attempting model fetch from:", targetUrl);
-          loadedModel = await tf.loadGraphModel(targetUrl);
-          await loadedModel.save(`indexeddb://${model_name}`);
-          console.log("✅ [Upscale Model] Model downloaded and cached in IndexedDB SUCCESSFULLY from:", targetUrl);
-          self.postMessage({ info: "Model cached successfully" });
+          const loadPromise = tf.loadGraphModel(targetUrl);
+          const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error(`Timeout loading from ${targetUrl}`)), 15000));
+          loadedModel = await Promise.race([loadPromise, timeoutPromise]);
+          try {
+            await loadedModel.save(`indexeddb://${model_name}`);
+            console.log("✅ [Upscale Model] Model downloaded and cached in IndexedDB SUCCESSFULLY from:", targetUrl);
+            self.postMessage({ info: "Model cached successfully" });
+          } catch (_) {}
           break;
         } catch (fetchErr) {
           console.warn("⚠️ [Upscale Model] Failed to fetch from:", targetUrl, fetchErr.message);
@@ -280,6 +284,7 @@ self.addEventListener("message", async (e) => {
       if (!loadedModel) {
         self.postMessage({
           alertmsg: `Failed to download model weights from ${absolute_model_url}. Error: ${lastErr ? lastErr.message : 'Network error'}`,
+          error: lastErr ? lastErr.message : 'Network error'
         });
         return;
       }
@@ -375,6 +380,10 @@ self.addEventListener("message", async (e) => {
         current++;
         let progress = (current / total) * 100;
         sendprogress(progress);
+
+        if (current % 3 === 0) {
+          await new Promise((r) => setTimeout(r, 0));
+        }
       }
     }
 

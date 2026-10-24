@@ -115,32 +115,48 @@
             const video = document.createElement('video');
             video.preload = 'metadata';
             video.muted = true;
+            video.playsInline = true;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
             const url = URL.createObjectURL(file);
             video.src = url;
             let resolved = false;
-            const done = (fps) => { if (!resolved) { resolved = true; URL.revokeObjectURL(url); resolve(fps); } };
+            let timeout = null;
+            const done = (fps) => {
+                if (!resolved) {
+                    resolved = true;
+                    if (timeout) clearTimeout(timeout);
+                    try { video.pause(); } catch(_) {}
+                    video.src = '';
+                    URL.revokeObjectURL(url);
+                    resolve(fps);
+                }
+            };
+            timeout = setTimeout(() => done(30), 1200);
+
             if ('requestVideoFrameCallback' in video) {
                 const frames = [];
-                let timeout = setTimeout(() => { video.pause(); done(30); }, 1500);
                 const cb = (now, meta) => {
                     frames.push(meta.mediaTime);
-                    if (frames.length < 10) video.requestVideoFrameCallback(cb);
-                    else {
-                        clearTimeout(timeout);
-                        video.pause();
+                    if (frames.length < 8) {
+                        video.requestVideoFrameCallback(cb);
+                    } else {
                         const diffs = [];
-                        for (let k=1;k<frames.length;k++){ const d=frames[k]-frames[k-1]; if(d>0.001) diffs.push(d); }
+                        for (let k = 1; k < frames.length; k++) {
+                            const d = frames[k] - frames[k - 1];
+                            if (d > 0.001) diffs.push(d);
+                        }
                         if (!diffs.length) { done(30); return; }
-                        const avg = diffs.reduce((a,b)=>a+b,0)/diffs.length;
-                        const raw = 1/avg;
-                        const common=[23.976,24,25,29.97,30,50,59.94,60];
-                        const nearest = common.reduce((p,c)=> Math.abs(c-raw)<Math.abs(p-raw)?c:p);
+                        const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+                        const raw = 1 / avg;
+                        const common = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
+                        const nearest = common.reduce((p, c) => Math.abs(c - raw) < Math.abs(p - raw) ? c : p);
                         done(nearest);
                     }
                 };
                 video.currentTime = 0;
                 video.requestVideoFrameCallback(cb);
-                video.play().catch(()=>{ clearTimeout(timeout); done(30); });
+                video.play().catch(() => done(30));
             } else {
                 video.onloadedmetadata = () => done(30);
                 video.onerror = () => done(30);
@@ -152,32 +168,35 @@
         constructor(width, height) {
             this.origWidth = width;
             this.origHeight = height;
-            this.width = Math.ceil(width/32)*32;
-            this.height = Math.ceil(height/32)*32;
+            this.width = Math.ceil(width / 32) * 32;
+            this.height = Math.ceil(height / 32) * 32;
             this.session = null;
             this.device = null;
-            this.canvas0 = document.createElement('canvas'); this.canvas0.width=this.width; this.canvas0.height=this.height; this.ctx0=this.canvas0.getContext('2d',{willReadFrequently:true});
-            this.canvas1 = document.createElement('canvas'); this.canvas1.width=this.width; this.canvas1.height=this.height; this.ctx1=this.canvas1.getContext('2d',{willReadFrequently:true});
-            this.interpCanvas=document.createElement('canvas'); this.interpCanvas.width=this.width; this.interpCanvas.height=this.height; this.interpCtx=this.interpCanvas.getContext('2d');
-            const total=this.width*this.height;
-            this.floatData0=new Float32Array(total*3);
-            this.floatData1=new Float32Array(total*3);
-            this.targetImgData=this.interpCtx.createImageData(this.width,this.height);
-            this.targetU32=new Uint32Array(this.targetImgData.data.buffer);
-            this.isReady=false;
+            this._modelBuffer = null;
+            this.canvas0 = document.createElement('canvas'); this.canvas0.width = this.width; this.canvas0.height = this.height; this.ctx0 = this.canvas0.getContext('2d', { willReadFrequently: true });
+            this.canvas1 = document.createElement('canvas'); this.canvas1.width = this.width; this.canvas1.height = this.height; this.ctx1 = this.canvas1.getContext('2d', { willReadFrequently: true });
+            this.interpCanvas = document.createElement('canvas'); this.interpCanvas.width = this.width; this.interpCanvas.height = this.height; this.interpCtx = this.interpCanvas.getContext('2d', { willReadFrequently: true });
+            const total = this.width * this.height;
+            this.floatData0 = new Float32Array(total * 3);
+            this.floatData1 = new Float32Array(total * 3);
+            this.targetImgData = this.interpCtx.createImageData(this.width, this.height);
+            this.targetU32 = new Uint32Array(this.targetImgData.data.buffer);
+            this.isReady = false;
         }
         async init(onLog){
             if (navigator.gpu) {
                 try {
-                    const adapter = await navigator.gpu.requestAdapter();
+                    const adapterPromise = navigator.gpu.requestAdapter();
+                    const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('GPU request timed out')), 1500));
+                    const adapter = await Promise.race([adapterPromise, timeoutPromise]);
                     if (adapter) this.device = await adapter.requestDevice();
                 } catch (_) {}
             }
             onLog('[RIFE] Loading RIFE model...');
-            const localModelUrl='ai/models/rife47_ensemble_True_scale_1_sim.onnx';
+            const localModelUrl = 'ai/models/rife47_ensemble_True_scale_1_sim.onnx';
             const cdnBase = window.TOOLS_CDN_BASE || 'https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/';
             const hfBase = window.HF_RESOURCE_BASE || 'https://huggingface.co/cutefishae/resource-cutefish/resolve/main';
-            const remoteUrls=[
+            const remoteUrls = [
                 `${hfBase}/models/rife47_ensemble_True_scale_1_sim.onnx`,
                 'https://huggingface.co/cutefishae/resource-cutefish/resolve/main/models/rife47_ensemble_True_scale_1_sim.onnx',
                 'https://huggingface.co/yuvraj108c/rife-onnx/resolve/main/rife47_ensemble_True_scale_1_sim.onnx',
@@ -185,33 +204,43 @@
                 localModelUrl,
                 'assets/models/rife47_ensemble_True_scale_1_sim.onnx'
             ];
-            let modelBuffer=null;
-            const cacheName='chros-offline-assets-v1'; let cache=null; if('caches' in window) try{cache=await caches.open(cacheName);}catch(e){}
-            if(cache){ try{ const full=new URL(localModelUrl,window.location.origin).href; const m=await cache.match(full)||await cache.match(localModelUrl); if(m){ onLog('[RIFE] Loading from offline cache...'); modelBuffer=await m.arrayBuffer(); } }catch(e){} }
-            if(!modelBuffer){
-                for(const u of remoteUrls){
-                    try{
+            let modelBuffer = null;
+            const cacheName = 'chros-offline-assets-v1'; let cache = null; if ('caches' in window) try { cache = await caches.open(cacheName); } catch (e) {}
+            if (cache) { try { const full = new URL(localModelUrl, window.location.origin).href; const m = await cache.match(full) || await cache.match(localModelUrl); if (m) { onLog('[RIFE] Loading from offline cache...'); modelBuffer = await m.arrayBuffer(); } } catch (e) {} }
+            if (!modelBuffer) {
+                for (const u of remoteUrls) {
+                    try {
                         onLog('[RIFE] Fetching RIFE model from CDN...');
-                        const r=await fetch(u);
-                        if(r.ok){
+                        const r = await fetch(u);
+                        if (r.ok) {
                             const buf = await r.arrayBuffer();
                             if (buf && buf.byteLength > 1000000) {
                                 const head = new TextDecoder().decode(new Uint8Array(buf.slice(0, 40)));
                                 if (!head.startsWith('File size exceeded') && !head.startsWith('<!DOCTYPE') && !head.startsWith('{')) {
                                     modelBuffer = buf;
-                                    if(cache){ try{ const full=new URL(localModelUrl,window.location.origin).href; const cr=new Response(modelBuffer.slice(0),{headers:{'Content-Type':'application/octet-stream'}}); await cache.put(full,cr.clone()); await cache.put(localModelUrl,cr);}catch(e){} }
+                                    if (cache) { try { const full = new URL(localModelUrl, window.location.origin).href; const cr = new Response(modelBuffer.slice(0), { headers: { 'Content-Type': 'application/octet-stream' } }); await cache.put(full, cr.clone()); await cache.put(localModelUrl, cr); } catch (e) {} }
                                     break;
                                 }
                             }
                         }
-                    }catch(e){}
+                    } catch (e) {}
                 }
             }
-            if(!modelBuffer) throw new Error('Failed to load RIFE model');
+            if (!modelBuffer) throw new Error('Failed to load RIFE model');
+            this._modelBuffer = modelBuffer;
+
             if (typeof ort === 'undefined' || !ort.InferenceSession) {
                 if (typeof window.ensureOnnxRuntime !== 'function') throw new Error('ONNX Runtime failed to load.');
                 await window.ensureOnnxRuntime();
             }
+
+            if (ort.env && ort.env.wasm) {
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent) ||
+                               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                ort.env.wasm.numThreads = isMobile ? 1 : Math.min(4, navigator.hardwareConcurrency || 4);
+                ort.env.wasm.simd = true;
+            }
+
             const epList = this.device
                 ? [{ name: 'webgpu', powerPreference: 'high-performance' }, 'wasm']
                 : ['wasm'];
@@ -227,31 +256,89 @@
                     graphOptimizationLevel: 'all'
                 });
             }
-            this.isReady=true; onLog('[RIFE] RIFE v4.7 ready');
+            this.isReady = true;
+            onLog('[RIFE] RIFE v4.7 ready');
         }
         async interpolate(srcCanvas0, srcCanvas1, progressVal, outCanvas){
             if(!this.isReady) throw new Error('RIFE not ready');
-            const w=this.width,h=this.height, ow=this.origWidth, oh=this.origHeight;
-            this.ctx0.clearRect(0,0,w,h); this.ctx0.drawImage(srcCanvas0,0,0,ow,oh,0,0,w,h);
-            const d0=this.ctx0.getImageData(0,0,w,h).data;
-            this.ctx1.clearRect(0,0,w,h); this.ctx1.drawImage(srcCanvas1,0,0,ow,oh,0,0,w,h);
-            const d1=this.ctx1.getImageData(0,0,w,h).data;
-            const total=w*h, inv=1/255, ro=0, go=total, bo=total*2;
-            for(let i=0,p=0;i<total;i++,p+=4){ this.floatData0[ro+i]=d0[p]*inv; this.floatData0[go+i]=d0[p+1]*inv; this.floatData0[bo+i]=d0[p+2]*inv; this.floatData1[ro+i]=d1[p]*inv; this.floatData1[go+i]=d1[p+1]*inv; this.floatData1[bo+i]=d1[p+2]*inv; }
-            const t0=new ort.Tensor('float32',this.floatData0,[1,3,h,w]);
-            const t1=new ort.Tensor('float32',this.floatData1,[1,3,h,w]);
-            const tt=new ort.Tensor('float32',new Float32Array([progressVal]),[1]);
-            const inputs=this.session.inputNames;
-            const n0=inputs.find(n=>n.includes('0')||n.includes('img0'))||inputs[0];
-            const n1=inputs.find(n=>n.includes('1')||n.includes('img1'))||inputs[1];
-            const nt=inputs.find(n=>n.includes('time'))||(inputs.length>2?inputs[2]:null);
-            const feeds={}; feeds[n0]=t0; feeds[n1]=t1; if(nt) feeds[nt]=tt;
-            const res=await this.session.run(feeds);
-            const out=res[this.session.outputNames[0]].data;
-            const u32=this.targetU32;
-            for(let i=0;i<total;i++){ const r=Math.min(255,Math.max(0,(out[ro+i]*255)|0)); const g=Math.min(255,Math.max(0,(out[go+i]*255)|0)); const b=Math.min(255,Math.max(0,(out[bo+i]*255)|0)); u32[i]=0xFF000000|(b<<16)|(g<<8)|r; }
-            this.interpCtx.putImageData(this.targetImgData,0,0);
-            const oc=outCanvas.getContext('2d'); oc.clearRect(0,0,ow,oh); oc.drawImage(this.interpCanvas,0,0,w,h,0,0,ow,oh);
+            const w = this.width, h = this.height, ow = this.origWidth, oh = this.origHeight;
+            this.ctx0.clearRect(0, 0, w, h); this.ctx0.drawImage(srcCanvas0, 0, 0, ow, oh, 0, 0, w, h);
+            const d0 = this.ctx0.getImageData(0, 0, w, h).data;
+            this.ctx1.clearRect(0, 0, w, h); this.ctx1.drawImage(srcCanvas1, 0, 0, ow, oh, 0, 0, w, h);
+            const d1 = this.ctx1.getImageData(0, 0, w, h).data;
+            const total = w * h, inv = 1 / 255, ro = 0, go = total, bo = total * 2;
+            for(let i = 0, p = 0; i < total; i++, p += 4){
+                this.floatData0[ro + i] = d0[p] * inv;
+                this.floatData0[go + i] = d0[p + 1] * inv;
+                this.floatData0[bo + i] = d0[p + 2] * inv;
+                this.floatData1[ro + i] = d1[p] * inv;
+                this.floatData1[go + i] = d1[p + 1] * inv;
+                this.floatData1[bo + i] = d1[p + 2] * inv;
+            }
+            const t0 = new ort.Tensor('float32', this.floatData0, [1, 3, h, w]);
+            const t1 = new ort.Tensor('float32', this.floatData1, [1, 3, h, w]);
+            const tt = new ort.Tensor('float32', new Float32Array([progressVal]), [1]);
+            const inputs = this.session.inputNames;
+            const n0 = inputs.find(n => n.includes('0') || n.includes('img0')) || inputs[0];
+            const n1 = inputs.find(n => n.includes('1') || n.includes('img1')) || inputs[1];
+            const nt = inputs.find(n => n.includes('time')) || (inputs.length > 2 ? inputs[2] : null);
+            const feeds = {}; feeds[n0] = t0; feeds[n1] = t1; if (nt) feeds[nt] = tt;
+
+            let res = null;
+            try {
+                res = await this.session.run(feeds);
+            } catch (err) {
+                if (this.device && this._modelBuffer) {
+                    this.device = null;
+                    this.session = await ort.InferenceSession.create(this._modelBuffer.slice(0), {
+                        executionProviders: ['wasm'],
+                        graphOptimizationLevel: 'all'
+                    });
+                    res = await this.session.run(feeds);
+                } else {
+                    throw err;
+                }
+            }
+
+            try {
+                const out = res[this.session.outputNames[0]].data;
+                const u32 = this.targetU32;
+                for(let i = 0; i < total; i++){
+                    const r = Math.min(255, Math.max(0, (out[ro + i] * 255) | 0));
+                    const g = Math.min(255, Math.max(0, (out[go + i] * 255) | 0));
+                    const b = Math.min(255, Math.max(0, (out[bo + i] * 255) | 0));
+                    u32[i] = 0xFF000000 | (b << 16) | (g << 8) | r;
+                }
+                this.interpCtx.putImageData(this.targetImgData, 0, 0);
+                const oc = outCanvas.getContext('2d');
+                oc.clearRect(0, 0, ow, oh);
+                oc.drawImage(this.interpCanvas, 0, 0, w, h, 0, 0, ow, oh);
+            } finally {
+                try { t0.dispose(); } catch (_) {}
+                try { t1.dispose(); } catch (_) {}
+                try { tt.dispose(); } catch (_) {}
+                if (res) {
+                    for (const k in res) {
+                        try { if (res[k] && typeof res[k].dispose === 'function') res[k].dispose(); } catch (_) {}
+                    }
+                }
+            }
+        }
+        destroy() {
+            if (this.session && typeof this.session.release === 'function') {
+                try { this.session.release(); } catch (_) {}
+            }
+            this.session = null;
+            this.device = null;
+            this._modelBuffer = null;
+            this.floatData0 = null;
+            this.floatData1 = null;
+            this.targetImgData = null;
+            this.targetU32 = null;
+            this.canvas0 = null;
+            this.canvas1 = null;
+            this.interpCanvas = null;
+            this.isReady = false;
         }
     }
 
@@ -282,16 +369,6 @@
         return ffmpegInstance;
     }
 
-    async function seekVideoForward(vid,time){
-        if(Math.abs(vid.currentTime-time)<0.002) return;
-        return new Promise(res=>{
-            let done=false; const onSeeked=()=>{ if(!done){done=true; vid.removeEventListener('seeked',onSeeked); res();}};
-            vid.addEventListener('seeked',onSeeked,{once:true});
-            vid.currentTime=time;
-            setTimeout(()=>{ if(!done){done=true; vid.removeEventListener('seeked',onSeeked); res();}},600);
-        });
-    }
-
     async function checkInterpSystemCompatibility() {
         const checkingScreen = document.getElementById('interp-checking-screen');
         const gpuDot = document.getElementById('interp-gpu-dot');
@@ -303,11 +380,17 @@
         if (mainContent) mainContent.classList.add('hidden');
         if (gpuDot) { gpuDot.textContent = 'sync'; gpuDot.style.color = 'var(--md-sys-color-primary)'; gpuDot.classList.add('upscale-spinner'); }
         if (gpuStatus) gpuStatus.textContent = t('interp_checking_gpu') || 'WebGPU: Checking...';
+
         let hasWebGPU = false;
         if (navigator.gpu) {
-            try { const adapter = await navigator.gpu.requestAdapter(); if (adapter) hasWebGPU = true; } catch(e) {}
+            try {
+                const adapterPromise = navigator.gpu.requestAdapter();
+                const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 1500));
+                const adapter = await Promise.race([adapterPromise, timeoutPromise]);
+                if (adapter) hasWebGPU = true;
+            } catch(e) {}
         }
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 200));
         if (gpuDot) {
             gpuDot.classList.remove('upscale-spinner');
             if (hasWebGPU) {
@@ -320,7 +403,7 @@
                 if (gpuStatus) gpuStatus.textContent = t('interp_fallback_gpu') || 'WebGPU unavailable: Using CPU WASM mode';
             }
         }
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 200));
         if (checkingScreen) checkingScreen.classList.add('hidden');
         if (mainContent) mainContent.classList.remove('hidden');
         const pb = document.getElementById('tool-process-btn');
@@ -337,7 +420,7 @@
         const optContainer = document.getElementById('tool-dynamic-options');
         if (!optContainer) return;
 
-        originalFps = await detectFps(file);
+        originalFps = 30; // default for instant rendering
 
         optContainer.innerHTML = `
             <div class="interp-workspace" id="interp-workspace-inner">
@@ -415,6 +498,14 @@
             window.updateOpenModalsLayout(true);
         }
         checkInterpSystemCompatibility();
+
+        // Detect actual video FPS in background without blocking modal rendering
+        detectFps(file).then(detected => {
+            originalFps = detected;
+            const inFpsEl = document.getElementById('interp-input-fps');
+            if (inFpsEl) inFpsEl.textContent = `${originalFps.toFixed(0)} FPS`;
+            if (targetFpsEl) targetFpsEl.textContent = `${(originalFps * multiplier).toFixed(0)} FPS`;
+        }).catch(() => {});
     }
 
     async function processInterpolation(file) {
@@ -429,61 +520,145 @@
         let outIdx = 0;
         let inName = null;
         let ffmpeg = null;
+        let rife = null;
+        let totalInputFrames = 0;
 
         try {
             ffmpeg = await getFFmpeg();
             const { fetchFile } = window.FFmpegUtil;
 
+            const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent) ||
+                               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
             const targetFps = originalFps * multiplier;
             log(`[RIFE] Starting RIFE AI interpolation ${originalFps}→${targetFps} FPS (${multiplier}x) ...`);
-            setProgress(35, `${t('status_encoding') || 'Interpolating frames'} (${targetFps} FPS)...`);
+            setProgress(15, `${t('status_encoding') || 'Preparing frames'} (${targetFps} FPS)...`);
             setButtonState('processing', `Interpolating ${multiplier}X...`);
+
+            // Probe metadata using hidden video element
             const procVideo = document.createElement('video');
-            procVideo.muted = true; procVideo.playsInline = true; procVideo.preload = 'auto';
+            procVideo.muted = true;
+            procVideo.playsInline = true;
+            procVideo.setAttribute('playsinline', '');
+            procVideo.setAttribute('webkit-playsinline', '');
+            procVideo.preload = 'metadata';
             const videoUrl = URL.createObjectURL(file);
             procVideo.src = videoUrl;
-            await new Promise((res, rej) => { procVideo.onloadedmetadata = () => res(); procVideo.onerror = () => rej(new Error('Video load failed')); });
-            const width = (procVideo.videoWidth || 640) & ~1;
-            const height = (procVideo.videoHeight || 360) & ~1;
-            const duration = procVideo.duration || 1;
-            const totalInputFrames = Math.max(2, Math.round(duration * originalFps));
-            const totalOutputFrames = (totalInputFrames - 1) * multiplier + 1;
-            log(`[RIFE] Video ${width}x${height} @ ${originalFps.toFixed(2)} FPS (${totalInputFrames} frames) → ${totalOutputFrames} frames`);
-            const rife = new RIFEInterpolator(width, height);
-            await rife.init((m)=>log(m));
-            setProgress(45, 'RIFE engine ready, interpolating...');
-            const ext = file.name.split('.').pop() || 'mp4';
-            inName = `input.${ext}`;
-            await ffmpeg.writeFile(inName, await fetchFile(file));
-            log(`[RIFE] Input written, starting frame interpolation...`);
-            const c0 = document.createElement('canvas'); c0.width=width; c0.height=height; const ctx0=c0.getContext('2d',{willReadFrequently:true});
-            const c1 = document.createElement('canvas'); c1.width=width; c1.height=height; const ctx1=c1.getContext('2d',{willReadFrequently:true});
-            const outCanvas = document.createElement('canvas'); outCanvas.width=width; outCanvas.height=height;
-            outIdx = 0;
-            const writeFrame = async (canvas) => {
-                const blob = await new Promise(r=>canvas.toBlob(r,'image/jpeg',0.90));
-                const ab = await blob.arrayBuffer();
-                await ffmpeg.writeFile(`frame_${String(outIdx++).padStart(5,'0')}.jpg`, new Uint8Array(ab));
-            };
-            await seekVideoForward(procVideo, 0);
-            ctx0.clearRect(0,0,width,height); ctx0.drawImage(procVideo,0,0,width,height);
-            for(let i=1;i<totalInputFrames;i++){
-                if (cancelRife) throw new Error('Cancelled');
-                const t1 = Math.min(duration, i / originalFps);
-                await seekVideoForward(procVideo, t1);
-                ctx1.clearRect(0,0,width,height); ctx1.drawImage(procVideo,0,0,width,height);
-                for(let s=0;s<multiplier;s++){
-                    const p = s / multiplier;
-                    if(p===0){ await writeFrame(c0); }
-                    else { await rife.interpolate(c0, c1, p, outCanvas); await writeFrame(outCanvas); }
-                }
-                ctx0.clearRect(0,0,width,height); ctx0.drawImage(c1,0,0);
-                const pct = 45 + Math.round((i/totalInputFrames)*40);
-                setProgress(Math.min(85,pct), `Interpolating ${outIdx}/${totalOutputFrames}...`);
-                if(i%8===0) log(`[RIFE] ${outIdx}/${totalOutputFrames} frames`);
-            }
-            if(!cancelRife){ const blob=await new Promise(r=>c0.toBlob(r,'image/jpeg',0.90)); const ab=await blob.arrayBuffer(); await ffmpeg.writeFile(`frame_${String(outIdx++).padStart(5,'0')}.jpg`, new Uint8Array(ab)); }
+
+            await new Promise((res) => {
+                procVideo.onloadedmetadata = () => res();
+                procVideo.onerror = () => res();
+                setTimeout(() => res(), 3000);
+            });
+
+            const origW = (procVideo.videoWidth || 640) & ~1;
+            const origH = (procVideo.videoHeight || 360) & ~1;
             URL.revokeObjectURL(videoUrl);
+
+            // Safe mobile processing dimensions to avoid WebGPU/WebGL OOM crashes
+            const maxDim = isMobileDevice ? 640 : 960;
+            let scale = 1;
+            if (Math.max(origW, origH) > maxDim) {
+                scale = maxDim / Math.max(origW, origH);
+            }
+            const width = Math.max(64, Math.round(origW * scale) & ~1);
+            const height = Math.max(64, Math.round(origH * scale) & ~1);
+
+            log(`[RIFE] Dimensions: ${origW}x${origH} -> Processing at ${width}x${height} (${isMobileDevice ? 'Mobile Safe Mode' : 'Standard Mode'})`);
+
+            rife = new RIFEInterpolator(width, height);
+            await rife.init((m) => log(m));
+            setProgress(25, 'RIFE engine ready...');
+
+            const ext = file.name.split('.').pop() || 'mp4';
+            inName = `input_${Date.now()}.${ext}`;
+            await ffmpeg.writeFile(inName, await fetchFile(file));
+            log(`[RIFE] Extracting video frames via FFmpeg WASM...`);
+            setProgress(30, 'Extracting frames...');
+
+            // Extract frames cleanly with FFmpeg WASM - eliminates flaky HTML5 video seeking
+            await ffmpeg.exec(['-i', inName, '-vf', `scale=${width}:${height}`, '-vsync', '0', '-qscale:v', '3', 'in_%05d.jpg']);
+
+            // Count total extracted frames
+            totalInputFrames = 0;
+            while (true) {
+                const fname = `in_${String(totalInputFrames + 1).padStart(5, '0')}.jpg`;
+                try {
+                    const testData = await ffmpeg.readFile(fname);
+                    if (!testData || testData.byteLength === 0) break;
+                    totalInputFrames++;
+                } catch (_) {
+                    break;
+                }
+            }
+
+            if (totalInputFrames < 2) {
+                throw new Error('Not enough frames extracted for video interpolation.');
+            }
+
+            const totalOutputFrames = (totalInputFrames - 1) * multiplier + 1;
+            log(`[RIFE] Extracted ${totalInputFrames} source frames -> Generating ${totalOutputFrames} output frames`);
+            setProgress(40, `Interpolating frames (0/${totalOutputFrames})...`);
+
+            const c0 = document.createElement('canvas'); c0.width = width; c0.height = height; const ctx0 = c0.getContext('2d', { willReadFrequently: true });
+            const c1 = document.createElement('canvas'); c1.width = width; c1.height = height; const ctx1 = c1.getContext('2d', { willReadFrequently: true });
+            const outCanvas = document.createElement('canvas'); outCanvas.width = width; outCanvas.height = height;
+            outIdx = 0;
+
+            const writeFrame = async (canvas) => {
+                const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+                const ab = await blob.arrayBuffer();
+                await ffmpeg.writeFile(`frame_${String(outIdx++).padStart(5, '0')}.jpg`, new Uint8Array(ab));
+            };
+
+            // Load initial frame 1
+            const f1Data = await ffmpeg.readFile('in_00001.jpg');
+            const img0 = await createImageBitmap(new Blob([f1Data], { type: 'image/jpeg' }));
+            ctx0.clearRect(0, 0, width, height);
+            ctx0.drawImage(img0, 0, 0, width, height);
+            img0.close();
+            try { await ffmpeg.deleteFile('in_00001.jpg'); } catch (_) {}
+
+            for (let i = 2; i <= totalInputFrames; i++) {
+                if (cancelRife) throw new Error('Cancelled by user');
+
+                const fName = `in_${String(i).padStart(5, '0')}.jpg`;
+                const fData = await ffmpeg.readFile(fName);
+                const img1 = await createImageBitmap(new Blob([fData], { type: 'image/jpeg' }));
+                ctx1.clearRect(0, 0, width, height);
+                ctx1.drawImage(img1, 0, 0, width, height);
+                img1.close();
+                try { await ffmpeg.deleteFile(fName); } catch (_) {}
+
+                for (let s = 0; s < multiplier; s++) {
+                    const p = s / multiplier;
+                    if (p === 0) {
+                        await writeFrame(c0);
+                    } else {
+                        await rife.interpolate(c0, c1, p, outCanvas);
+                        await writeFrame(outCanvas);
+                    }
+                }
+
+                ctx0.clearRect(0, 0, width, height);
+                ctx0.drawImage(c1, 0, 0);
+
+                const pct = 40 + Math.round(((i - 1) / totalInputFrames) * 45);
+                setProgress(Math.min(85, pct), `Interpolating ${outIdx}/${totalOutputFrames}...`);
+                if (i % 10 === 0) {
+                    log(`[RIFE] ${outIdx}/${totalOutputFrames} frames`);
+                }
+
+                // Yield to event loop to allow GC and keep UI responsive on mobile
+                if (i % 2 === 0) {
+                    await new Promise(r => setTimeout(r, 4));
+                }
+            }
+
+            if (!cancelRife) {
+                await writeFrame(c0);
+            }
+
             log(`[RIFE] Encoding ${outIdx} frames @ ${targetFps} FPS...`);
             setProgress(88, 'Encoding output video...');
 
@@ -494,7 +669,14 @@
 
             const hardwareThreads = navigator.hardwareConcurrency || 4;
             const threads = Math.min(4, hardwareThreads).toString();
-            const encodeArgs = ['-y', '-framerate', String(targetFps), '-threads', threads, '-i', 'frame_%05d.jpg', '-i', inName, '-map', '0:v', '-map', '1:a?', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(targetFps), '-preset', 'ultrafast', '-shortest', 'output.mp4'];
+
+            // Reconstruct video with libx264, scaling back to original dimensions if scaled for inference
+            const encodeArgs = ['-y', '-framerate', String(targetFps), '-threads', threads, '-i', 'frame_%05d.jpg', '-i', inName];
+            if (scale < 1) {
+                encodeArgs.push('-vf', `scale=${origW}:${origH}:flags=bicubic`);
+            }
+            encodeArgs.push('-map', '0:v', '-map', '1:a?', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(targetFps), '-preset', 'ultrafast', '-shortest', 'output.mp4');
+
             await ffmpeg.exec(encodeArgs);
             setProgress(95, t('status_finalizing') || 'Finalizing video...');
             const data = await ffmpeg.readFile('output.mp4');
@@ -551,10 +733,20 @@
             }
             if (activeContext) throw err;
         } finally {
+            if (rife) {
+                try { rife.destroy(); } catch (_) {}
+            }
             if (ffmpeg) {
-                for(let f=0; f<outIdx; f++){ try{ await ffmpeg.deleteFile(`frame_${String(f).padStart(5,'0')}.jpg`);}catch(e){} }
-                if (inName) { try{ await ffmpeg.deleteFile(inName);}catch(e){} }
-                try{ await ffmpeg.deleteFile('output.mp4');}catch(e){}
+                for (let f = 0; f < outIdx; f++) {
+                    try { await ffmpeg.deleteFile(`frame_${String(f).padStart(5, '0')}.jpg`); } catch (_) {}
+                }
+                for (let f = 1; f <= totalInputFrames; f++) {
+                    try { await ffmpeg.deleteFile(`in_${String(f).padStart(5, '0')}.jpg`); } catch (_) {}
+                }
+                if (inName) {
+                    try { await ffmpeg.deleteFile(inName); } catch (_) {}
+                }
+                try { await ffmpeg.deleteFile('output.mp4'); } catch (_) {}
             }
             isProcessing = false;
         }
