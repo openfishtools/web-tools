@@ -114,6 +114,13 @@ async function encodeVideo(inputFile, method, outputFile) {
         return getFfprobeMeta(outputFile);
     }
 
+    if (method === 'orcav1' || method === 'orca-v1') {
+        const { patchOrcaV1 } = require(resolveMethodModule('orcav1.js'));
+        patchOrcaV1(inputFile, outputFile);
+        console.log(`[Encode] orcav1: ${outputFile}`);
+        return getFfprobeMeta(outputFile);
+    }
+
     throw new Error(`Unknown method: ${method}`);
 }
 

@@ -1,6 +1,8 @@
 # Environment & Secrets (NEVER upload to git)
 .env
 .env.*
+env.temp
+*.temp
 !.env.example
 
 # Test media & outputs

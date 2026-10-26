@@ -62,3 +62,9 @@ When debugging tools or processing failures:
 - **Zero Silent Git Changes**: STRICTLY FORBIDDEN to run `git checkout`, `git restore`, `git reset`, `git clean`, `git pull`, `git switch`, or any Git command that alters or discards local changes without explicit user consent.
 - **Preserve Uncommitted Work**: Always respect and preserve active uncommitted edits and untracked files in the working directory.
 - **Zero Emojis**: Git commit messages, comments, and documentation must never contain emojis.
+
+## 7. Temporary Secrets & API Key Hygiene (.env.temp)
+- **Zero Secret Retention**: Jangan simpan API key sensitif/user (seperti Zernio API key) di repo, git, atau file persistent `.env`.
+- **Use .env.temp Only**: Jika user memberikan API key untuk testing/bypass, simpan HANYA sementara di `.env.temp`.
+- **Mandatory Cleanup**: Setiap kali hendak membuat atau menguji method baru, WAJIB cleanup / hapus API key di `.env.temp` setelah selesai digunakan atau sebelum berpindah task.
+
