@@ -225,43 +225,46 @@ function _v3_buildStts(entries) {
     }
     return _v3_makeBox('stts', payload);
 }
-function _v3_createCutefishUdtaBox(existingUdtaBytes) {
+function _v3_createCutefishUdtaBox() {
     const textBytes = new TextEncoder().encode('cutefish.my.id');
-    const cmtBox = new Uint8Array(16 + textBytes.length);
-    new DataView(cmtBox.buffer).setUint32(0, cmtBox.length, false);
-    cmtBox[4] = 0xA9; cmtBox[5] = 0x63; cmtBox[6] = 0x6D; cmtBox[7] = 0x74; // '©cmt'
-    cmtBox.set(textBytes, 16);
+    const dataSize = 16 + textBytes.length;
+    const dataBox = new Uint8Array(dataSize);
+    new DataView(dataBox.buffer).setUint32(0, dataSize, false);
+    dataBox[4] = 0x64; dataBox[5] = 0x61; dataBox[6] = 0x74; dataBox[7] = 0x61;
+    dataBox[11] = 1;
+    dataBox.set(textBytes, 16);
 
-    if (existingUdtaBytes && existingUdtaBytes.byteLength >= 8) {
-        const bytes = existingUdtaBytes instanceof Uint8Array ? existingUdtaBytes : new Uint8Array(existingUdtaBytes);
-        const target = [99, 117, 116, 101, 102, 105, 115, 104, 46, 109, 121, 46, 105, 100];
-        for (let i = 0; i <= bytes.length - target.length; i++) {
-            if (bytes[i] === target[0]) {
-                let match = true;
-                for (let j = 1; j < target.length; j++) {
-                    if (bytes[i + j] !== target[j]) { match = false; break; }
-                }
-                if (match) return bytes;
-            }
-        }
+    const cmtSize = 8 + dataBox.length;
+    const cmtBox = new Uint8Array(cmtSize);
+    new DataView(cmtBox.buffer).setUint32(0, cmtSize, false);
+    cmtBox[4] = 0xA9; cmtBox[5] = 0x63; cmtBox[6] = 0x6D; cmtBox[7] = 0x74;
+    cmtBox.set(dataBox, 8);
 
-        const origPayload = bytes.subarray(8);
-        const newPayload = new Uint8Array(origPayload.length + cmtBox.length);
-        newPayload.set(origPayload, 0);
-        newPayload.set(cmtBox, origPayload.length);
+    const ilstSize = 8 + cmtBox.length;
+    const ilstBox = new Uint8Array(ilstSize);
+    new DataView(ilstBox.buffer).setUint32(0, ilstSize, false);
+    ilstBox[4] = 0x69; ilstBox[5] = 0x6C; ilstBox[6] = 0x73; ilstBox[7] = 0x74;
+    ilstBox.set(cmtBox, 8);
 
-        const newUdta = new Uint8Array(8 + newPayload.length);
-        new DataView(newUdta.buffer).setUint32(0, newUdta.length, false);
-        newUdta[4] = 0x75; newUdta[5] = 0x64; newUdta[6] = 0x74; newUdta[7] = 0x61;
-        newUdta.set(newPayload, 8);
-        return newUdta;
-    } else {
-        const newUdta = new Uint8Array(8 + cmtBox.length);
-        new DataView(newUdta.buffer).setUint32(0, newUdta.length, false);
-        newUdta[4] = 0x75; newUdta[5] = 0x64; newUdta[6] = 0x74; newUdta[7] = 0x61;
-        newUdta.set(cmtBox, 8);
-        return newUdta;
-    }
+    const hdlrBox = new Uint8Array(33);
+    new DataView(hdlrBox.buffer).setUint32(0, 33, false);
+    hdlrBox[4] = 0x68; hdlrBox[5] = 0x6C; hdlrBox[6] = 0x64; hdlrBox[7] = 0x72;
+    hdlrBox[12] = 0x6D; hdlrBox[13] = 0x64; hdlrBox[14] = 0x69; hdlrBox[15] = 0x72;
+    hdlrBox[16] = 0x61; hdlrBox[17] = 0x70; hdlrBox[18] = 0x70; hdlrBox[19] = 0x6C;
+
+    const metaSize = 12 + hdlrBox.length + ilstBox.length;
+    const metaBox = new Uint8Array(metaSize);
+    new DataView(metaBox.buffer).setUint32(0, metaSize, false);
+    metaBox[4] = 0x6D; metaBox[5] = 0x65; metaBox[6] = 0x74; metaBox[7] = 0x61;
+    metaBox.set(hdlrBox, 12);
+    metaBox.set(ilstBox, 12 + hdlrBox.length);
+
+    const udtaSize = 8 + metaBox.length;
+    const udtaBox = new Uint8Array(udtaSize);
+    new DataView(udtaBox.buffer).setUint32(0, udtaSize, false);
+    udtaBox[4] = 0x75; udtaBox[5] = 0x64; udtaBox[6] = 0x74; udtaBox[7] = 0x61;
+    udtaBox.set(metaBox, 8);
+    return udtaBox;
 }
 
 function _v3_rebuildBox(box, replacements) {

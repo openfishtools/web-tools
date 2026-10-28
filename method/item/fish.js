@@ -92,43 +92,53 @@ function concatArrays(arrs) {
     return out;
 }
 
-function _fish_createCutefishUdtaBox(existingUdtaBytes) {
+function _fish_createCutefishUdtaBox() {
     const textBytes = new TextEncoder().encode('cutefish.my.id');
-    const cmtBox = new Uint8Array(16 + textBytes.length);
-    new DataView(cmtBox.buffer).setUint32(0, cmtBox.length, false);
+
+    // 1. data box inside ©cmt: size(4) + 'data'(4) + type(4) + locale(4) + text
+    const dataSize = 16 + textBytes.length;
+    const dataBox = new Uint8Array(dataSize);
+    new DataView(dataBox.buffer).setUint32(0, dataSize, false);
+    dataBox[4] = 0x64; dataBox[5] = 0x61; dataBox[6] = 0x74; dataBox[7] = 0x61; // 'data'
+    dataBox[11] = 1; // text / UTF-8
+    dataBox.set(textBytes, 16);
+
+    // 2. ©cmt box inside ilst: size(4) + '©cmt'(4) + dataBox
+    const cmtSize = 8 + dataBox.length;
+    const cmtBox = new Uint8Array(cmtSize);
+    new DataView(cmtBox.buffer).setUint32(0, cmtSize, false);
     cmtBox[4] = 0xA9; cmtBox[5] = 0x63; cmtBox[6] = 0x6D; cmtBox[7] = 0x74; // '©cmt'
-    cmtBox.set(textBytes, 16);
+    cmtBox.set(dataBox, 8);
 
-    if (existingUdtaBytes && existingUdtaBytes.byteLength >= 8) {
-        const bytes = existingUdtaBytes instanceof Uint8Array ? existingUdtaBytes : new Uint8Array(existingUdtaBytes);
-        const target = [99, 117, 116, 101, 102, 105, 115, 104, 46, 109, 121, 46, 105, 100];
-        for (let i = 0; i <= bytes.length - target.length; i++) {
-            if (bytes[i] === target[0]) {
-                let match = true;
-                for (let j = 1; j < target.length; j++) {
-                    if (bytes[i + j] !== target[j]) { match = false; break; }
-                }
-                if (match) return bytes;
-            }
-        }
+    // 3. ilst box inside meta: size(4) + 'ilst'(4) + cmtBox
+    const ilstSize = 8 + cmtBox.length;
+    const ilstBox = new Uint8Array(ilstSize);
+    new DataView(ilstBox.buffer).setUint32(0, ilstSize, false);
+    ilstBox[4] = 0x69; ilstBox[5] = 0x6C; ilstBox[6] = 0x73; ilstBox[7] = 0x74; // 'ilst'
+    ilstBox.set(cmtBox, 8);
 
-        const origPayload = bytes.subarray(8);
-        const newPayload = new Uint8Array(origPayload.length + cmtBox.length);
-        newPayload.set(origPayload, 0);
-        newPayload.set(cmtBox, origPayload.length);
+    // 4. hdlr box inside meta: 33 bytes standard QuickTime metadata handler (mdir / appl)
+    const hdlrBox = new Uint8Array(33);
+    new DataView(hdlrBox.buffer).setUint32(0, 33, false);
+    hdlrBox[4] = 0x68; hdlrBox[5] = 0x64; hdlrBox[6] = 0x6C; hdlrBox[7] = 0x72; // 'hdlr'
+    hdlrBox[12] = 0x6D; hdlrBox[13] = 0x64; hdlrBox[14] = 0x69; hdlrBox[15] = 0x72; // 'mdir'
+    hdlrBox[16] = 0x61; hdlrBox[17] = 0x70; hdlrBox[18] = 0x70; hdlrBox[19] = 0x6C; // 'appl'
 
-        const newUdta = new Uint8Array(8 + newPayload.length);
-        new DataView(newUdta.buffer).setUint32(0, newUdta.length, false);
-        newUdta[4] = 0x75; newUdta[5] = 0x64; newUdta[6] = 0x74; newUdta[7] = 0x61;
-        newUdta.set(newPayload, 8);
-        return newUdta;
-    } else {
-        const newUdta = new Uint8Array(8 + cmtBox.length);
-        new DataView(newUdta.buffer).setUint32(0, newUdta.length, false);
-        newUdta[4] = 0x75; newUdta[5] = 0x64; newUdta[6] = 0x74; newUdta[7] = 0x61;
-        newUdta.set(cmtBox, 8);
-        return newUdta;
-    }
+    // 5. meta box inside udta: size(4) + 'meta'(4) + version/flags(4) + hdlr + ilst
+    const metaSize = 12 + hdlrBox.length + ilstBox.length;
+    const metaBox = new Uint8Array(metaSize);
+    new DataView(metaBox.buffer).setUint32(0, metaSize, false);
+    metaBox[4] = 0x6D; metaBox[5] = 0x65; metaBox[6] = 0x74; metaBox[7] = 0x61; // 'meta'
+    metaBox.set(hdlrBox, 12);
+    metaBox.set(ilstBox, 12 + hdlrBox.length);
+
+    // 6. udta box: size(4) + 'udta'(4) + metaBox
+    const udtaSize = 8 + metaBox.length;
+    const udtaBox = new Uint8Array(udtaSize);
+    new DataView(udtaBox.buffer).setUint32(0, udtaSize, false);
+    udtaBox[4] = 0x75; udtaBox[5] = 0x64; udtaBox[6] = 0x74; udtaBox[7] = 0x61; // 'udta'
+    udtaBox.set(metaBox, 8);
+    return udtaBox;
 }
 
 /**
@@ -416,10 +426,8 @@ function _ss_patchMp4Fish(inputBuffer, logFn) {
         const moovChildrenBoxes = [newMvhdBox, newVTrak];
         if (newATrak) moovChildrenBoxes.push(newATrak);
 
-        // Retain original udta and ensure non-destructive ©cmt 'cutefish.my.id' comment is present
-        const origUdta = moovChildren.find(b => b.type === 'udta');
-        const origUdtaBytes = origUdta ? buf.subarray(origUdta.offset, origUdta.end) : null;
-        moovChildrenBoxes.push(_fish_createCutefishUdtaBox(origUdtaBytes));
+        // Inject standard Apple QuickTime/MP4 udta -> meta -> ilst -> ©cmt -> data ('cutefish.my.id')
+        moovChildrenBoxes.push(_fish_createCutefishUdtaBox());
 
         moovBytes = _fish_makeBox('moov', concatArrays(moovChildrenBoxes));
 
