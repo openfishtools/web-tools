@@ -225,6 +225,45 @@ function _v3_buildStts(entries) {
     }
     return _v3_makeBox('stts', payload);
 }
+function _v3_createCutefishUdtaBox(existingUdtaBytes) {
+    const textBytes = new TextEncoder().encode('cutefish.my.id');
+    const cmtBox = new Uint8Array(16 + textBytes.length);
+    new DataView(cmtBox.buffer).setUint32(0, cmtBox.length, false);
+    cmtBox[4] = 0xA9; cmtBox[5] = 0x63; cmtBox[6] = 0x6D; cmtBox[7] = 0x74; // '©cmt'
+    cmtBox.set(textBytes, 16);
+
+    if (existingUdtaBytes && existingUdtaBytes.byteLength >= 8) {
+        const bytes = existingUdtaBytes instanceof Uint8Array ? existingUdtaBytes : new Uint8Array(existingUdtaBytes);
+        const target = [99, 117, 116, 101, 102, 105, 115, 104, 46, 109, 121, 46, 105, 100];
+        for (let i = 0; i <= bytes.length - target.length; i++) {
+            if (bytes[i] === target[0]) {
+                let match = true;
+                for (let j = 1; j < target.length; j++) {
+                    if (bytes[i + j] !== target[j]) { match = false; break; }
+                }
+                if (match) return bytes;
+            }
+        }
+
+        const origPayload = bytes.subarray(8);
+        const newPayload = new Uint8Array(origPayload.length + cmtBox.length);
+        newPayload.set(origPayload, 0);
+        newPayload.set(cmtBox, origPayload.length);
+
+        const newUdta = new Uint8Array(8 + newPayload.length);
+        new DataView(newUdta.buffer).setUint32(0, newUdta.length, false);
+        newUdta[4] = 0x75; newUdta[5] = 0x64; newUdta[6] = 0x74; newUdta[7] = 0x61;
+        newUdta.set(newPayload, 8);
+        return newUdta;
+    } else {
+        const newUdta = new Uint8Array(8 + cmtBox.length);
+        new DataView(newUdta.buffer).setUint32(0, newUdta.length, false);
+        newUdta[4] = 0x75; newUdta[5] = 0x64; newUdta[6] = 0x74; newUdta[7] = 0x61;
+        newUdta.set(cmtBox, 8);
+        return newUdta;
+    }
+}
+
 function _v3_rebuildBox(box, replacements) {
     if (replacements.has(box)) return replacements.get(box);
     if (!box.children.length) return _v3_boxBytes(box);
@@ -233,6 +272,9 @@ function _v3_rebuildBox(box, replacements) {
     for (const child of box.children) {
         const r = _v3_rebuildBox(child, replacements);
         if (r) parts.push(r);
+    }
+    if (box.type === 'moov' && !box.children.some(c => c.type === 'udta')) {
+        parts.push(_v3_createCutefishUdtaBox(null));
     }
     return _v3_makeBox(box.type, _v3_concatBytes(parts));
 }
@@ -398,6 +440,12 @@ function _v3_patchMp4FPS(inputData, _logFn) {
             const maxMvhdDur = Math.max(vMvhdDur, aMvhdDur);
             _v3_writeU32BE(mvhdData, durOff, maxMvhdDur);
             replacements.set(mvhd, mvhdData);
+        }
+
+        const udtaChild = _v3_findChild(moov, 'udta');
+        if (udtaChild) {
+            const origBytes = _v3_boxBytes(udtaChild);
+            replacements.set(udtaChild, _v3_createCutefishUdtaBox(origBytes));
         }
 
         const moovFinal = _v3_rebuildBox(moov, replacements);
