@@ -157,7 +157,10 @@ self.addEventListener("message", async (e) => {
   let model_url = "";
   let model_name = "";
 
-  if (data?.model_type === "realesrgan") {
+  if (data?.model_type === "span" || data?.model === "span4x_128" || data?.model === "nomos_uni") {
+    model_url = `/assets/upscale/span4x_${data?.tile_size || 128}/model.json`;
+    model_name = `span-nomosuni-4x-${data?.tile_size || 128}`;
+  } else if (data?.model_type === "realesrgan") {
     model_url = `/realesrgan/${data?.model}-${data?.tile_size}/model.json`;
     model_name = `realesrgan-${data?.model}-${data?.tile_size}`;
   } else {
@@ -189,7 +192,7 @@ self.addEventListener("message", async (e) => {
       safeSetFlag('CHECK_COMPUTATION_FOR_ERRORS', false);
 
       safeSetFlag('WEBGL_VERSION', 2);
-      safeSetFlag('WEBGL_FORCE_F16_TEXTURES', false);
+      safeSetFlag('WEBGL_FORCE_F16_TEXTURES', true);
       safeSetFlag('WEBGL_FORCE_F16_OPERATOR', false);
       safeSetFlag('WEBGL_PACK', true);
       safeSetFlag('WEBGL_EXP_CONV', true);
@@ -249,16 +252,24 @@ self.addEventListener("message", async (e) => {
 
     try {
       model = await tf.loadGraphModel(`indexeddb://${model_name}`);
-      console.log("✅ [Upscale Model] Loaded model SUCCESSFULLY from IndexedDB cache:", model_name);
+      console.log("[Upscale Model] Loaded model SUCCESSFULLY from IndexedDB cache:", model_name);
       self.postMessage({ info: "Loaded from cache" });
     } catch (error) {
-      console.log("🚀 [Upscale Model] Downloading model weights:", absolute_model_url);
+      console.log("[Upscale Model] Downloading model weights:", absolute_model_url);
       self.postMessage({ info: "Downloading model..." });
 
-      const urlsToTry = [
-        absolute_model_url,
-        `https://upscale.chino.icu${model_url}`
-      ];
+      const isSpan = data?.model_type === "span" || data?.model === "span4x_128" || data?.model === "nomos_uni";
+      const tileSz = data?.tile_size || 128;
+      const urlsToTry = isSpan
+        ? [
+            absolute_model_url,
+            `${self.location.origin}/ai/models/span4x_${tileSz}/model.json`,
+            `https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/ai/models/span4x_${tileSz}/model.json`
+          ]
+        : [
+            absolute_model_url,
+            `https://upscale.chino.icu${model_url}`
+          ];
 
       let loadedModel = null;
       let lastErr = null;

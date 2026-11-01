@@ -598,7 +598,7 @@
             if (this.ready) return true;
             try {
                 const base = window.TOOLS_CDN_BASE || '';
-                this.worker = new Worker(base + 'assets/upscale/upscaleWorker.js?v=5');
+                this.worker = new Worker(base + 'assets/upscale/upscaleWorker.js?v=6');
                 this.worker.addEventListener('message', (e) => {
                     const { progress, done, output, alertmsg, info } = e.data;
                     if (info && this.infoHandler) this.infoHandler(info);
@@ -678,9 +678,9 @@
                     height: procH,
                     factor: UPSCALE_FACTOR,
                     tile_size: 128,
-                    min_lap: 16,
-                    model_type: 'realesrgan',
-                    model: 'anime_fast',
+                    min_lap: 8,
+                    model_type: 'span',
+                    model: 'span4x_128',
                     backend: 'webgl',
                     hasAlpha: false
                 }, [imgData.data.buffer]);
@@ -809,7 +809,7 @@
             if (!engine) {
                 log('[Preview] AI Engine unavailable, falling back to filter-only.');
             } else {
-                log(`[Preview] AI Engine: Real-ESRGAN x${UPSCALE_FACTOR} (anime_fast, webgl) ready.`);
+                log(`[Preview] AI Engine: SPAN NomosUni x${UPSCALE_FACTOR} (span4x_128, webgl) ready.`);
             }
 
             const onAiProgress = (p) => {
@@ -1363,7 +1363,7 @@
                 log(`[Enhance] GPU filter engine: ${gpuEnhancer ? 'WebGL2 ready' : 'fallback 2D canvas'}`);
                 const engine = getUpscaleEngine();
                 const params = getPresetParams(activePreset);
-                log(`[Enhance] AI Engine: ${engine ? `Real-ESRGAN x${UPSCALE_FACTOR} ready` : 'unavailable, filter-only'}`);
+                log(`[Enhance] AI Engine: ${engine ? `SPAN NomosUni x${UPSCALE_FACTOR} ready` : 'unavailable, filter-only'}`);
 
                 const onAiProgress = (p) => {
                     const normalized = Math.min(1, Math.max(0, (p || 0) / 100));
@@ -1473,7 +1473,7 @@
                 }
 
                 if (engine) {
-                    log(`[Enhance] AI video pipeline engaged (Real-ESRGAN x${UPSCALE_FACTOR}).`);
+                    log(`[Enhance] AI video pipeline engaged (SPAN NomosUni x${UPSCALE_FACTOR}).`);
                     await runAiVideoPipeline(ffmpeg, inName, file, (frac) => {
                         setProgress(40 + Math.round(Math.min(1, Math.max(0, frac)) * 55), `${t('status_processing') || 'AI upscaling'} ${Math.round(frac * 100)}%`);
                     });
