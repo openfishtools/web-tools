@@ -158,7 +158,7 @@ self.addEventListener("message", async (e) => {
   let model_name = "";
 
   if (data?.model_type === "span" || data?.model === "span4x_128" || data?.model === "nomos_uni") {
-    model_url = `/assets/upscale/span4x_${data?.tile_size || 128}/model.json`;
+    model_url = `/ai/models/span4x_${data?.tile_size || 128}/model.json`;
     model_name = `span-nomosuni-4x-${data?.tile_size || 128}`;
   } else if (data?.model_type === "realesrgan") {
     model_url = `/realesrgan/${data?.model}-${data?.tile_size}/model.json`;
@@ -262,9 +262,9 @@ self.addEventListener("message", async (e) => {
       const tileSz = data?.tile_size || 128;
       const urlsToTry = isSpan
         ? [
-            absolute_model_url,
-            `${self.location.origin}/ai/models/span4x_${tileSz}/model.json`,
-            `https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/ai/models/span4x_${tileSz}/model.json`
+            `https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/ai/models/span4x_${tileSz}/model.json`,
+            `https://raw.githubusercontent.com/openfishtools/web-tools/main/ai/models/span4x_${tileSz}/model.json`,
+            absolute_model_url
           ]
         : [
             absolute_model_url,
