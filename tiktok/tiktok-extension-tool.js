@@ -12,6 +12,56 @@
     // Tempat link YouTube tutorial (diisi user kapan saja)
     let youtubeTutorialUrl = '';
 
+    const I18N = {
+        id: {
+            tutorialTitle: 'Tutorial Video',
+            videoPending: 'Tutorial Video',
+            videoPendingDesc: 'Video tutorial akan segera tersedia di sini.',
+            quettaTitle: 'Quetta Browser',
+            quettaTag: 'Android / Mobile',
+            quettaDesc: 'Khusus pengguna HP / Android untuk memasang ekstensi di ponsel.',
+            quettaBtn: 'Download Quetta',
+            extTitle: 'Download Ekstensi',
+            chipVer: 'Versi',
+            chipSize: 'Ukuran',
+            chipDate: 'Diperbarui',
+            chipStatus: 'Status',
+            statusSafe: 'Latest Stable',
+            btnDownload: 'Download',
+            btnGithub: 'GitHub'
+        },
+        en: {
+            tutorialTitle: 'Video Tutorial',
+            videoPending: 'Video Tutorial',
+            videoPendingDesc: 'Video tutorial will be available here soon.',
+            quettaTitle: 'Quetta Browser',
+            quettaTag: 'Android / Mobile',
+            quettaDesc: 'For mobile / Android users to install extensions on smartphones.',
+            quettaBtn: 'Download Quetta',
+            extTitle: 'Download Extension',
+            chipVer: 'Version',
+            chipSize: 'Size',
+            chipDate: 'Updated',
+            chipStatus: 'Status',
+            statusSafe: 'Latest Stable',
+            btnDownload: 'Download',
+            btnGithub: 'GitHub'
+        }
+    };
+
+    function getLang() {
+        if (window.getCurrentLanguage && typeof window.getCurrentLanguage === 'function') {
+            const lang = window.getCurrentLanguage();
+            if (lang === 'id' || lang === 'en') return lang;
+        }
+        return (navigator.language && navigator.language.startsWith('id')) ? 'id' : 'en';
+    }
+
+    function getText(key) {
+        const lang = getLang();
+        return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+    }
+
     function extractYouTubeEmbedUrl(url) {
         if (!url || typeof url !== 'string') return null;
         const trimmed = url.trim();
@@ -88,7 +138,8 @@
         if (!isoStr) return '—';
         try {
             const d = new Date(isoStr);
-            return d.toLocaleDateString('id-ID', {
+            const lang = getLang();
+            return d.toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric'
@@ -275,7 +326,7 @@
                 border: none !important;
                 border-radius: var(--radius-m, 12px) !important;
                 padding: 12px 16px !important;
-                font-size: 13px !important;
+                font-size: 13.5px !important;
                 font-weight: 600 !important;
                 cursor: pointer !important;
                 text-decoration: none !important;
@@ -292,13 +343,13 @@
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                gap: 7px !important;
+                gap: 8px !important;
                 background: var(--md-sys-color-surface-container-high, #1e291f) !important;
                 color: var(--md-sys-color-on-surface, #f2f7f2) !important;
                 border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.12)) !important;
                 border-radius: var(--radius-m, 12px) !important;
                 padding: 12px 16px !important;
-                font-size: 13px !important;
+                font-size: 13.5px !important;
                 font-weight: 500 !important;
                 cursor: pointer !important;
                 text-decoration: none !important;
@@ -309,11 +360,6 @@
             }
             .ext-btn-secondary:hover {
                 background: var(--md-sys-color-surface-container-highest, #232d24) !important;
-            }
-            .ext-footer-note {
-                font-size: 11.5px !important;
-                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.5)) !important;
-                margin-top: 2px !important;
             }
 
             @media (max-width: 480px) {
@@ -345,7 +391,7 @@
             <div class="ext-card-section">
                 <div class="ext-section-header">
                     <span class="material-symbols-rounded">smart_display</span>
-                    <span>Tutorial Pemasangan Ekstensi</span>
+                    <span>${getText('tutorialTitle')}</span>
                 </div>
 
                 <div class="ext-video-wrap" id="ext-video-container">
@@ -354,8 +400,8 @@
                     ` : `
                         <div class="ext-video-placeholder">
                             <span class="material-symbols-rounded">play_circle</span>
-                            <div class="ext-video-placeholder-title">Tutorial Video</div>
-                            <div class="ext-video-placeholder-desc">Video tutorial pemasangan ekstensi akan segera tersedia di sini.</div>
+                            <div class="ext-video-placeholder-title">${getText('videoPending')}</div>
+                            <div class="ext-video-placeholder-desc">${getText('videoPendingDesc')}</div>
                         </div>
                     `}
                 </div>
@@ -366,14 +412,14 @@
                 <div class="ext-quetta-header-row">
                     <div class="ext-section-header">
                         <span class="material-symbols-rounded">phone_android</span>
-                        <span>Download Quetta Browser</span>
+                        <span>${getText('quettaTitle')}</span>
                     </div>
-                    <span class="ext-quetta-tag">Android / Mobile</span>
+                    <span class="ext-quetta-tag">${getText('quettaTag')}</span>
                 </div>
-                <p class="ext-quetta-desc">Khusus pengguna HP / Android, unduh Quetta Browser untuk memasang dan menjalankan ekstensi di ponsel.</p>
+                <p class="ext-quetta-desc">${getText('quettaDesc')}</p>
                 <a href="https://www.quetta.net/" target="_blank" rel="noopener noreferrer" class="ext-btn-quetta">
                     <span class="material-symbols-rounded">download</span>
-                    <span>Download Quetta Browser</span>
+                    <span>${getText('quettaBtn')}</span>
                     <span class="material-symbols-rounded" style="font-size: 16px; margin-left: 2px;">arrow_outward</span>
                 </a>
             </div>
@@ -382,41 +428,39 @@
             <div class="ext-card-section ext-download-box">
                 <div class="ext-section-header">
                     <span class="material-symbols-rounded">download</span>
-                    <span>Download Ekstensi</span>
+                    <span>${getText('extTitle')}</span>
                 </div>
 
                 <div class="ext-release-info-grid">
                     <div class="ext-release-chip">
-                        <span class="ext-chip-label">Versi</span>
+                        <span class="ext-chip-label">${getText('chipVer')}</span>
                         <span class="ext-chip-val badge-safe" id="ext-ver-text">${FALLBACK_VERSION}</span>
                     </div>
                     <div class="ext-release-chip">
-                        <span class="ext-chip-label">Ukuran</span>
+                        <span class="ext-chip-label">${getText('chipSize')}</span>
                         <span class="ext-chip-val" id="ext-size-text">~83 KB</span>
                     </div>
                     <div class="ext-release-chip">
-                        <span class="ext-chip-label">Diperbarui</span>
+                        <span class="ext-chip-label">${getText('chipDate')}</span>
                         <span class="ext-chip-val" id="ext-date-text">...</span>
                     </div>
                     <div class="ext-release-chip">
-                        <span class="ext-chip-label">Status</span>
-                        <span class="ext-chip-val badge-safe">Latest Stable</span>
+                        <span class="ext-chip-label">${getText('chipStatus')}</span>
+                        <span class="ext-chip-val badge-safe">${getText('statusSafe')}</span>
                     </div>
                 </div>
 
                 <div class="ext-download-actions">
                     <a href="${FALLBACK_ZIP_URL}" id="ext-download-btn" class="ext-btn-download" download>
-                        <span class="material-symbols-rounded">file_download</span>
-                        <span>Download Extension (.zip)</span>
+                        <span class="material-symbols-rounded">download</span>
+                        <span>${getText('btnDownload')}</span>
                     </a>
                     <a href="${GITHUB_RELEASES_PAGE}" id="ext-github-btn" class="ext-btn-secondary" target="_blank" rel="noopener noreferrer">
-                        <span class="material-symbols-rounded">open_in_new</span>
-                        <span>GitHub Release</span>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                        </svg>
+                        <span>${getText('btnGithub')}</span>
                     </a>
-                </div>
-
-                <div class="ext-footer-note">
-                    Ekstensi otomatis mendeteksi rilis versi terbaru langsung dari repositori cutefishaep/fp-ext.
                 </div>
             </div>
         `;
@@ -451,14 +495,18 @@
         isTool: true,
         version: '0.3.0',
         title: 'Extension Method',
-        desc: 'TikTok Studio Desktop UA & Ingest Extension',
+        get desc() {
+            return getLang() === 'id' 
+                ? 'Ekstensi browser TikTok Studio & Ingest Bypass' 
+                : 'TikTok Studio Desktop UA & Ingest Extension';
+        },
         icon: 'extension',
         category: ['TikTok', 'Tools'],
         hideDropZone: true,
         hideProcessBtn: true,
         hideProgress: true,
         specs: [
-            { label: 'PLATFORM', value: 'Chrome, Edge, Brave, Kiwi' },
+            { label: 'PLATFORM', value: 'Chrome, Edge, Brave, Kiwi, Quetta' },
             { label: 'VERSION', value: 'v0.3.0 (Auto-updating)' },
             { label: 'SOURCE', value: 'GitHub / cutefishaep/fp-ext' }
         ],
