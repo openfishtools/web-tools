@@ -331,33 +331,6 @@
                         </div>
                     `}
                 </div>
-
-                <div class="ext-steps-list">
-                    <div class="ext-step-item">
-                        <span class="ext-step-badge">1</span>
-                        <div class="ext-step-text">Download file ekstensi <strong id="ext-step-zip-name">fish-acceleration.zip</strong> pada blok di bawah.</div>
-                    </div>
-                    <div class="ext-step-item">
-                        <span class="ext-step-badge">2</span>
-                        <div class="ext-step-text">Ekstrak file <span class="ext-step-code">.zip</span> tersebut ke dalam folder di komputer Anda.</div>
-                    </div>
-                    <div class="ext-step-item">
-                        <span class="ext-step-badge">3</span>
-                        <div class="ext-step-text">Buka tab baru di browser: <span class="ext-step-code">chrome://extensions/</span> (dukungan Chrome, Edge, Brave, Kiwi).</div>
-                    </div>
-                    <div class="ext-step-item">
-                        <span class="ext-step-badge">4</span>
-                        <div class="ext-step-text">Aktifkan tombol <strong>Developer mode</strong> (Mode pengembang) di pojok kanan atas.</div>
-                    </div>
-                    <div class="ext-step-item">
-                        <span class="ext-step-badge">5</span>
-                        <div class="ext-step-text">Klik <strong>Load unpacked</strong> (Muat yang belum dibuka), lalu pilih folder hasil ekstrak tadi.</div>
-                    </div>
-                    <div class="ext-step-item">
-                        <span class="ext-step-badge">6</span>
-                        <div class="ext-step-text">Buka <strong>TikTok Studio</strong> (<span class="ext-step-code">tiktok.com/tiktokstudio</span>), ekstensi akan aktif otomatis.</div>
-                    </div>
-                </div>
             </div>
 
             <!-- 2. Block Download Extension di Bawah -->
