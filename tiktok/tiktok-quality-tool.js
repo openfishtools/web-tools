@@ -1370,6 +1370,7 @@
         id: 'tool-tiktok-patcher',
         _id: 'tool-tiktok-patcher',
         isTool: true,
+        hidden: true,
         version: '3.8.0',
         title: 'Quality method',
         titleKey: 'tool_patcher_title',
