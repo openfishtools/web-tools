@@ -106,7 +106,7 @@
             .ext-modal-container {
                 display: flex !important;
                 flex-direction: column !important;
-                gap: 16px !important;
+                gap: 14px !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
             }
@@ -174,50 +174,61 @@
                 max-width: 380px !important;
                 line-height: 1.45 !important;
             }
-            .ext-steps-list {
-                display: flex !important;
-                flex-direction: column !important;
+
+            /* Quetta Browser Card */
+            .ext-quetta-card {
+                background: linear-gradient(135deg, rgba(30, 41, 31, 0.95), rgba(23, 33, 24, 0.95)) !important;
+                border: 1px solid rgba(163, 219, 167, 0.22) !important;
                 gap: 10px !important;
-                margin-top: 4px !important;
             }
-            .ext-step-item {
+            .ext-quetta-header-row {
                 display: flex !important;
-                align-items: flex-start !important;
-                gap: 12px !important;
-                font-size: 13px !important;
-                line-height: 1.5 !important;
-                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.75)) !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 10px !important;
             }
-            .ext-step-badge {
-                width: 24px !important;
-                height: 24px !important;
-                border-radius: 50% !important;
-                background: var(--md-sys-color-surface-container-high, #1e291f) !important;
-                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.12)) !important;
+            .ext-quetta-tag {
+                background: rgba(163, 219, 167, 0.12) !important;
+                color: #a3dba7 !important;
+                border: 1px solid rgba(163, 219, 167, 0.25) !important;
+                border-radius: 6px !important;
+                padding: 2px 8px !important;
+                font-size: 11px !important;
+                font-weight: 600 !important;
+            }
+            .ext-quetta-desc {
+                font-size: 12.5px !important;
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.75)) !important;
+                margin: 0 !important;
+                line-height: 1.45 !important;
+            }
+            .ext-btn-quetta {
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                font-size: 11.5px !important;
-                font-weight: 700 !important;
+                gap: 8px !important;
+                background: var(--md-sys-color-surface-container-high, #1e291f) !important;
                 color: var(--md-sys-color-primary, #a3dba7) !important;
-                flex-shrink: 0 !important;
-                margin-top: 1px !important;
+                border: 1px solid rgba(163, 219, 167, 0.35) !important;
+                border-radius: var(--radius-m, 12px) !important;
+                padding: 11px 18px !important;
+                font-size: 13.5px !important;
+                font-weight: 600 !important;
+                text-decoration: none !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                transition: all 0.2s ease !important;
             }
-            .ext-step-text strong {
-                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+            .ext-btn-quetta:hover {
+                background: rgba(163, 219, 167, 0.15) !important;
+                border-color: #a3dba7 !important;
+                transform: translateY(-1px) !important;
             }
-            .ext-step-code {
-                background: var(--md-sys-color-surface-container-highest, #232d24) !important;
-                padding: 2px 7px !important;
-                border-radius: 5px !important;
-                font-family: monospace !important;
-                font-size: 11.5px !important;
-                color: var(--md-sys-color-primary, #a3dba7) !important;
-                border: 1px solid rgba(255, 255, 255, 0.06) !important;
-            }
+
+            /* Release 2x2 Grid */
             .ext-release-info-grid {
                 display: grid !important;
-                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+                grid-template-columns: repeat(2, 1fr) !important;
                 gap: 10px !important;
             }
             .ext-release-chip {
@@ -244,26 +255,33 @@
             .ext-chip-val.badge-safe {
                 color: var(--md-sys-color-primary, #a3dba7) !important;
             }
+
+            /* Actions Row - Balanced 2 Columns */
             .ext-download-actions {
-                display: flex !important;
-                align-items: center !important;
-                gap: 12px !important;
-                flex-wrap: wrap !important;
-                margin-top: 6px !important;
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 10px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                margin-top: 4px !important;
             }
             .ext-btn-download {
-                display: inline-flex !important;
+                display: flex !important;
                 align-items: center !important;
+                justify-content: center !important;
                 gap: 8px !important;
                 background: var(--md-sys-color-primary, #a3dba7) !important;
                 color: var(--md-sys-color-on-primary, #0c3912) !important;
                 border: none !important;
                 border-radius: var(--radius-m, 12px) !important;
-                padding: 11px 20px !important;
-                font-size: 13.5px !important;
+                padding: 12px 16px !important;
+                font-size: 13px !important;
                 font-weight: 600 !important;
                 cursor: pointer !important;
                 text-decoration: none !important;
+                box-sizing: border-box !important;
+                width: 100% !important;
+                text-align: center !important;
                 transition: opacity 0.2s ease, transform 0.15s ease !important;
             }
             .ext-btn-download:hover {
@@ -271,18 +289,22 @@
                 transform: translateY(-1px) !important;
             }
             .ext-btn-secondary {
-                display: inline-flex !important;
+                display: flex !important;
                 align-items: center !important;
+                justify-content: center !important;
                 gap: 7px !important;
                 background: var(--md-sys-color-surface-container-high, #1e291f) !important;
                 color: var(--md-sys-color-on-surface, #f2f7f2) !important;
                 border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.12)) !important;
                 border-radius: var(--radius-m, 12px) !important;
-                padding: 11px 16px !important;
+                padding: 12px 16px !important;
                 font-size: 13px !important;
                 font-weight: 500 !important;
                 cursor: pointer !important;
                 text-decoration: none !important;
+                box-sizing: border-box !important;
+                width: 100% !important;
+                text-align: center !important;
                 transition: background 0.2s ease !important;
             }
             .ext-btn-secondary:hover {
@@ -292,6 +314,12 @@
                 font-size: 11.5px !important;
                 color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.5)) !important;
                 margin-top: 2px !important;
+            }
+
+            @media (max-width: 480px) {
+                .ext-download-actions {
+                    grid-template-columns: 1fr !important;
+                }
             }
         `;
         document.head.appendChild(style);
@@ -333,7 +361,24 @@
                 </div>
             </div>
 
-            <!-- 2. Block Download Extension di Bawah -->
+            <!-- 2. Quetta Browser (Di Atas Ekstensi) -->
+            <div class="ext-card-section ext-quetta-card">
+                <div class="ext-quetta-header-row">
+                    <div class="ext-section-header">
+                        <span class="material-symbols-rounded">phone_android</span>
+                        <span>Download Quetta Browser</span>
+                    </div>
+                    <span class="ext-quetta-tag">Android / Mobile</span>
+                </div>
+                <p class="ext-quetta-desc">Khusus pengguna HP / Android, unduh Quetta Browser untuk memasang dan menjalankan ekstensi di ponsel.</p>
+                <a href="https://www.quetta.net/" target="_blank" rel="noopener noreferrer" class="ext-btn-quetta">
+                    <span class="material-symbols-rounded">download</span>
+                    <span>Download Quetta Browser</span>
+                    <span class="material-symbols-rounded" style="font-size: 16px; margin-left: 2px;">arrow_outward</span>
+                </a>
+            </div>
+
+            <!-- 3. Block Download Extension di Bawah -->
             <div class="ext-card-section ext-download-box">
                 <div class="ext-section-header">
                     <span class="material-symbols-rounded">download</span>
