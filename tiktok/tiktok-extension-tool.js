@@ -5,7 +5,7 @@
     const REPO_NAME = 'fp-ext';
     const GITHUB_API_LATEST = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
     const GITHUB_RELEASES_PAGE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases`;
-    const FALLBACK_VERSION = 'v0.3.2';
+    const FALLBACK_VERSION = 'v0.3.3';
     const FALLBACK_ZIP_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${FALLBACK_VERSION}/fish-acceleration.zip`;
     const CACHE_KEY = 'fp_ext_latest_release_cache';
 
@@ -128,7 +128,7 @@
     }
 
     function formatBytes(bytes) {
-        if (!bytes || isNaN(bytes)) return '~83 KB';
+        if (!bytes || isNaN(bytes)) return '~78 KB';
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
@@ -493,7 +493,7 @@
         id: 'tool-tiktok-extension',
         _id: 'tool-tiktok-extension',
         isTool: true,
-        version: '0.3.0',
+        version: '0.3.3',
         title: 'Extension Method',
         get desc() {
             return getLang() === 'id' 
