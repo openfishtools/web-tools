@@ -5,7 +5,7 @@
     const REPO_NAME = 'fp-ext';
     const GITHUB_API_LATEST = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
     const GITHUB_RELEASES_PAGE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases`;
-    const FALLBACK_VERSION = 'v0.3.0';
+    const FALLBACK_VERSION = 'v0.3.1';
     const FALLBACK_ZIP_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${FALLBACK_VERSION}/fish-acceleration.zip`;
     const CACHE_KEY = 'fp_ext_latest_release_cache';
 
