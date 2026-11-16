@@ -9,13 +9,8 @@
     const FALLBACK_ZIP_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${FALLBACK_VERSION}/fish-acceleration.zip`;
     const CACHE_KEY = 'fp_ext_latest_release_cache';
 
-    // Tempat link YouTube tutorial (diisi user)
-    // Format: 'https://www.youtube.com/watch?v=...' atau 'https://youtu.be/...'
+    // Tempat link YouTube tutorial (diisi user kapan saja)
     let youtubeTutorialUrl = '';
-
-    function t(key, fallback) {
-        return (window.getTranslation && window.getTranslation(key)) || fallback || key;
-    }
 
     function extractYouTubeEmbedUrl(url) {
         if (!url || typeof url !== 'string') return null;
@@ -30,7 +25,6 @@
     }
 
     async function fetchLatestRelease() {
-        // Cek sessionStorage cache terlebih dahulu (cache selama 10 menit)
         try {
             const cached = sessionStorage.getItem(CACHE_KEY);
             if (cached) {
@@ -94,8 +88,7 @@
         if (!isoStr) return '—';
         try {
             const d = new Date(isoStr);
-            const isId = (window.getCurrentLanguage && window.getCurrentLanguage() === 'id');
-            return d.toLocaleDateString(isId ? 'id-ID' : 'en-US', {
+            return d.toLocaleDateString('id-ID', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric'
@@ -105,8 +98,209 @@
         }
     }
 
+    function injectExtensionStyles() {
+        if (document.getElementById('fp-ext-tool-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'fp-ext-tool-styles';
+        style.textContent = `
+            .ext-modal-container {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 16px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            .ext-card-section {
+                background: var(--md-sys-color-surface-container, #172118) !important;
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.1)) !important;
+                border-radius: var(--radius-l, 16px) !important;
+                padding: 18px 20px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 14px !important;
+                box-sizing: border-box !important;
+            }
+            .ext-section-header {
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                font-size: 14.5px !important;
+                font-weight: 600 !important;
+                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+            }
+            .ext-section-header .material-symbols-rounded {
+                font-size: 20px !important;
+                color: var(--md-sys-color-primary, #a3dba7) !important;
+            }
+            .ext-video-wrap {
+                width: 100% !important;
+                aspect-ratio: 16 / 9 !important;
+                border-radius: var(--radius-m, 12px) !important;
+                overflow: hidden !important;
+                background: var(--md-sys-color-surface-container-highest, #232d24) !important;
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.08)) !important;
+                position: relative !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            .ext-video-wrap iframe {
+                width: 100% !important;
+                height: 100% !important;
+                border: none !important;
+            }
+            .ext-video-placeholder {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 10px !important;
+                padding: 24px !important;
+                text-align: center !important;
+            }
+            .ext-video-placeholder .material-symbols-rounded {
+                font-size: 48px !important;
+                color: var(--md-sys-color-primary, #a3dba7) !important;
+                opacity: 0.85 !important;
+            }
+            .ext-video-placeholder-title {
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+            }
+            .ext-video-placeholder-desc {
+                font-size: 12px !important;
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.65)) !important;
+                max-width: 380px !important;
+                line-height: 1.45 !important;
+            }
+            .ext-steps-list {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+                margin-top: 4px !important;
+            }
+            .ext-step-item {
+                display: flex !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+                font-size: 13px !important;
+                line-height: 1.5 !important;
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.75)) !important;
+            }
+            .ext-step-badge {
+                width: 24px !important;
+                height: 24px !important;
+                border-radius: 50% !important;
+                background: var(--md-sys-color-surface-container-high, #1e291f) !important;
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.12)) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                font-size: 11.5px !important;
+                font-weight: 700 !important;
+                color: var(--md-sys-color-primary, #a3dba7) !important;
+                flex-shrink: 0 !important;
+                margin-top: 1px !important;
+            }
+            .ext-step-text strong {
+                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+            }
+            .ext-step-code {
+                background: var(--md-sys-color-surface-container-highest, #232d24) !important;
+                padding: 2px 7px !important;
+                border-radius: 5px !important;
+                font-family: monospace !important;
+                font-size: 11.5px !important;
+                color: var(--md-sys-color-primary, #a3dba7) !important;
+                border: 1px solid rgba(255, 255, 255, 0.06) !important;
+            }
+            .ext-release-info-grid {
+                display: grid !important;
+                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+                gap: 10px !important;
+            }
+            .ext-release-chip {
+                background: var(--md-sys-color-surface-container-high, #1e291f) !important;
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.08)) !important;
+                border-radius: var(--radius-m, 12px) !important;
+                padding: 10px 14px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 3px !important;
+            }
+            .ext-chip-label {
+                font-size: 10.5px !important;
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.55)) !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.4px !important;
+                font-weight: 600 !important;
+            }
+            .ext-chip-val {
+                font-size: 13.5px !important;
+                font-weight: 700 !important;
+                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+            }
+            .ext-chip-val.badge-safe {
+                color: var(--md-sys-color-primary, #a3dba7) !important;
+            }
+            .ext-download-actions {
+                display: flex !important;
+                align-items: center !important;
+                gap: 12px !important;
+                flex-wrap: wrap !important;
+                margin-top: 6px !important;
+            }
+            .ext-btn-download {
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 8px !important;
+                background: var(--md-sys-color-primary, #a3dba7) !important;
+                color: var(--md-sys-color-on-primary, #0c3912) !important;
+                border: none !important;
+                border-radius: var(--radius-m, 12px) !important;
+                padding: 11px 20px !important;
+                font-size: 13.5px !important;
+                font-weight: 600 !important;
+                cursor: pointer !important;
+                text-decoration: none !important;
+                transition: opacity 0.2s ease, transform 0.15s ease !important;
+            }
+            .ext-btn-download:hover {
+                opacity: 0.92 !important;
+                transform: translateY(-1px) !important;
+            }
+            .ext-btn-secondary {
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 7px !important;
+                background: var(--md-sys-color-surface-container-high, #1e291f) !important;
+                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.12)) !important;
+                border-radius: var(--radius-m, 12px) !important;
+                padding: 11px 16px !important;
+                font-size: 13px !important;
+                font-weight: 500 !important;
+                cursor: pointer !important;
+                text-decoration: none !important;
+                transition: background 0.2s ease !important;
+            }
+            .ext-btn-secondary:hover {
+                background: var(--md-sys-color-surface-container-highest, #232d24) !important;
+            }
+            .ext-footer-note {
+                font-size: 11.5px !important;
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.5)) !important;
+                margin-top: 2px !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     function initExtensionMethodUI({ optContainer, dropZone, processBtn, progressSec }) {
         if (!optContainer) return;
+        injectExtensionStyles();
+
         if (dropZone) dropZone.classList.add('hidden');
         if (processBtn && processBtn.parentElement) processBtn.parentElement.classList.add('hidden');
         if (progressSec) progressSec.classList.add('hidden');
@@ -123,7 +317,7 @@
             <div class="ext-card-section">
                 <div class="ext-section-header">
                     <span class="material-symbols-rounded">smart_display</span>
-                    <span>${t('ext_tutorial_title', 'Tutorial Pemasangan Ekstensi')}</span>
+                    <span>Tutorial Pemasangan Ekstensi</span>
                 </div>
 
                 <div class="ext-video-wrap" id="ext-video-container">
@@ -132,8 +326,8 @@
                     ` : `
                         <div class="ext-video-placeholder">
                             <span class="material-symbols-rounded">play_circle</span>
-                            <div class="ext-video-placeholder-title">${t('ext_video_pending', 'Tutorial Video')}</div>
-                            <div class="ext-video-placeholder-desc">${t('ext_video_pending_desc', 'Video tutorial pemasangan ekstensi akan segera tersedia di sini.')}</div>
+                            <div class="ext-video-placeholder-title">Tutorial Video</div>
+                            <div class="ext-video-placeholder-desc">Video tutorial pemasangan ekstensi akan segera tersedia di sini.</div>
                         </div>
                     `}
                 </div>
@@ -170,24 +364,24 @@
             <div class="ext-card-section ext-download-box">
                 <div class="ext-section-header">
                     <span class="material-symbols-rounded">download</span>
-                    <span>${t('ext_download_title', 'Download Ekstensi')}</span>
+                    <span>Download Ekstensi</span>
                 </div>
 
                 <div class="ext-release-info-grid">
                     <div class="ext-release-chip">
-                        <span class="ext-chip-label">${t('ext_chip_ver', 'Versi')}</span>
+                        <span class="ext-chip-label">Versi</span>
                         <span class="ext-chip-val badge-safe" id="ext-ver-text">${FALLBACK_VERSION}</span>
                     </div>
                     <div class="ext-release-chip">
-                        <span class="ext-chip-label">${t('ext_chip_size', 'Ukuran')}</span>
+                        <span class="ext-chip-label">Ukuran</span>
                         <span class="ext-chip-val" id="ext-size-text">~83 KB</span>
                     </div>
                     <div class="ext-release-chip">
-                        <span class="ext-chip-label">${t('ext_chip_date', 'Diperbarui')}</span>
+                        <span class="ext-chip-label">Diperbarui</span>
                         <span class="ext-chip-val" id="ext-date-text">...</span>
                     </div>
                     <div class="ext-release-chip">
-                        <span class="ext-chip-label">${t('ext_chip_status', 'Status')}</span>
+                        <span class="ext-chip-label">Status</span>
                         <span class="ext-chip-val badge-safe">Latest Stable</span>
                     </div>
                 </div>
@@ -195,7 +389,7 @@
                 <div class="ext-download-actions">
                     <a href="${FALLBACK_ZIP_URL}" id="ext-download-btn" class="ext-btn-download" download>
                         <span class="material-symbols-rounded">file_download</span>
-                        <span>${t('ext_btn_download', 'Download Extension (.zip)')}</span>
+                        <span>Download Extension (.zip)</span>
                     </a>
                     <a href="${GITHUB_RELEASES_PAGE}" id="ext-github-btn" class="ext-btn-secondary" target="_blank" rel="noopener noreferrer">
                         <span class="material-symbols-rounded">open_in_new</span>
@@ -204,7 +398,7 @@
                 </div>
 
                 <div class="ext-footer-note">
-                    ${t('ext_footer_note', 'Ekstensi otomatis mendeteksi rilis versi terbaru langsung dari repositori cutefishaep/fp-ext.')}
+                    Ekstensi otomatis mendeteksi rilis versi terbaru langsung dari repositori cutefishaep/fp-ext.
                 </div>
             </div>
         `;
@@ -239,9 +433,7 @@
         isTool: true,
         version: '0.3.0',
         title: 'Extension Method',
-        titleKey: 'tool_extension_title',
         desc: 'TikTok Studio Desktop UA & Ingest Extension',
-        descKey: 'tool_extension_desc',
         icon: 'extension',
         category: ['TikTok', 'Tools'],
         hideDropZone: true,
