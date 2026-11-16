@@ -936,8 +936,6 @@
     const FP_EXT_REPO_NAME = 'fp-ext';
     const FP_EXT_GITHUB_API_LATEST = `https://api.github.com/repos/${FP_EXT_REPO_OWNER}/${FP_EXT_REPO_NAME}/releases/latest`;
     const FP_EXT_GITHUB_RELEASES_PAGE = `https://github.com/${FP_EXT_REPO_OWNER}/${FP_EXT_REPO_NAME}/releases`;
-    const FP_EXT_FALLBACK_VERSION = 'v0.3.3';
-    const FP_EXT_FALLBACK_ZIP_URL = `https://github.com/${FP_EXT_REPO_OWNER}/${FP_EXT_REPO_NAME}/releases/download/${FP_EXT_FALLBACK_VERSION}/fish-acceleration.zip`;
     const FP_EXT_CACHE_KEY = 'fp_ext_latest_release_cache';
 
     const EXT_I18N = {
@@ -1002,6 +1000,57 @@
         return null;
     }
 
+    async function fetchExtReleaseFromGithubApi() {
+        try {
+            const res = await fetch(FP_EXT_GITHUB_API_LATEST, {
+                headers: { 'Accept': 'application/vnd.github.v3+json' }
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+
+            let zipAsset = null;
+            if (Array.isArray(data.assets)) {
+                zipAsset = data.assets.find(a => (a.name || '').endsWith('.zip')) || null;
+            }
+            if (!data.tag_name || !zipAsset) return null;
+
+            return {
+                tag: data.tag_name,
+                name: data.name || `Fish Acceleration ${data.tag_name}`,
+                publishedAt: data.published_at || null,
+                zipUrl: zipAsset.browser_download_url,
+                zipSize: zipAsset.size || null,
+                releaseUrl: data.html_url || FP_EXT_GITHUB_RELEASES_PAGE
+            };
+        } catch (_) {
+            return null;
+        }
+    }
+
+    async function fetchExtReleaseFromJsDelivr() {
+        try {
+            const res = await fetch(`https://data.jsdelivr.com/v1/packages/gh/${FP_EXT_REPO_OWNER}/${FP_EXT_REPO_NAME}`);
+            if (!res.ok) return null;
+            const data = await res.json();
+            const versions = Array.isArray(data.versions) ? data.versions : [];
+            const latest = versions.find(v => v && v.version && !v.dev);
+            if (!latest) return null;
+
+            const raw = String(latest.version).trim();
+            const tag = raw.startsWith('v') ? raw : `v${raw}`;
+            return {
+                tag: tag,
+                name: `Fish Acceleration ${tag}`,
+                publishedAt: null,
+                zipUrl: `https://github.com/${FP_EXT_REPO_OWNER}/${FP_EXT_REPO_NAME}/releases/download/${tag}/fish-acceleration-${tag}.zip`,
+                zipSize: null,
+                releaseUrl: `https://github.com/${FP_EXT_REPO_OWNER}/${FP_EXT_REPO_NAME}/releases/tag/${tag}`
+            };
+        } catch (_) {
+            return null;
+        }
+    }
+
     async function fetchExtLatestRelease() {
         try {
             const cached = sessionStorage.getItem(FP_EXT_CACHE_KEY);
@@ -1013,50 +1062,27 @@
             }
         } catch (_) {}
 
-        try {
-            const res = await fetch(FP_EXT_GITHUB_API_LATEST, {
-                headers: { 'Accept': 'application/vnd.github.v3+json' }
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+        // Chain: GitHub API (exact assets) -> jsDelivr versions (no rate limit).
+        // No hardcoded release data: when both fail, UI shows placeholders and
+        // the download button points to the releases page.
+        const result = (await fetchExtReleaseFromGithubApi())
+            || (await fetchExtReleaseFromJsDelivr())
+            || null;
 
-            let zipAsset = null;
-            if (Array.isArray(data.assets)) {
-                zipAsset = data.assets.find(a => (a.name || '').endsWith('.zip')) || data.assets[0];
-            }
-
-            const result = {
-                tag: data.tag_name || FP_EXT_FALLBACK_VERSION,
-                name: data.name || `Fish Acceleration ${data.tag_name || FP_EXT_FALLBACK_VERSION}`,
-                publishedAt: data.published_at || null,
-                zipUrl: zipAsset?.browser_download_url || FP_EXT_FALLBACK_ZIP_URL,
-                zipSize: zipAsset?.size || 84729,
-                releaseUrl: data.html_url || FP_EXT_GITHUB_RELEASES_PAGE
-            };
-
+        if (result) {
             try {
                 sessionStorage.setItem(FP_EXT_CACHE_KEY, JSON.stringify({
                     timestamp: Date.now(),
                     data: result
                 }));
             } catch (_) {}
-
-            return result;
-        } catch (err) {
-            console.warn('[QualityMethod] Failed to fetch latest extension release, using fallback:', err.message);
-            return {
-                tag: FP_EXT_FALLBACK_VERSION,
-                name: `Fish Acceleration ${FP_EXT_FALLBACK_VERSION}`,
-                publishedAt: null,
-                zipUrl: FP_EXT_FALLBACK_ZIP_URL,
-                zipSize: 84729,
-                releaseUrl: FP_EXT_GITHUB_RELEASES_PAGE
-            };
         }
+
+        return result;
     }
 
     function extFormatBytes(bytes) {
-        if (!bytes || isNaN(bytes)) return '~78 KB';
+        if (!bytes || isNaN(bytes)) return '~85 KB';
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
@@ -1409,11 +1435,11 @@
                     <div class="ext-release-info-grid">
                         <div class="ext-release-chip">
                             <span class="ext-chip-label">${extText('chipVer')}</span>
-                            <span class="ext-chip-val badge-safe" id="ext-ver-text">${FP_EXT_FALLBACK_VERSION}</span>
+                            <span class="ext-chip-val badge-safe" id="ext-ver-text">...</span>
                         </div>
                         <div class="ext-release-chip">
                             <span class="ext-chip-label">${extText('chipSize')}</span>
-                            <span class="ext-chip-val" id="ext-size-text">~83 KB</span>
+                            <span class="ext-chip-val" id="ext-size-text">...</span>
                         </div>
                         <div class="ext-release-chip">
                             <span class="ext-chip-label">${extText('chipDate')}</span>
@@ -1426,7 +1452,7 @@
                     </div>
 
                     <div class="ext-download-actions">
-                        <a href="${FP_EXT_FALLBACK_ZIP_URL}" id="ext-download-btn" class="ext-btn-download" download>
+                        <a href="${FP_EXT_GITHUB_RELEASES_PAGE}" id="ext-download-btn" class="ext-btn-download" download>
                             <span class="material-symbols-rounded">download</span>
                             <span>${extText('btnDownload')}</span>
                         </a>
@@ -1441,7 +1467,9 @@
             </div>
         `;
 
-        // Fetch release terbaru secara asinkron dan update UI
+        // Fetch release terbaru secara asinkron dan update UI.
+        // Tanpa data hardcoded: kalau semua sumber gagal, chips tetap "—"
+        // dan tombol Download mengarah ke halaman releases.
         fetchExtLatestRelease().then(release => {
             const verEl = container.querySelector('#ext-ver-text');
             const sizeEl = container.querySelector('#ext-size-text');
@@ -1449,15 +1477,15 @@
             const dlBtn = container.querySelector('#ext-download-btn');
             const ghBtn = container.querySelector('#ext-github-btn');
 
-            if (verEl) verEl.textContent = release.tag;
-            if (sizeEl) sizeEl.textContent = extFormatBytes(release.zipSize);
-            if (dateEl) dateEl.textContent = extFormatDate(release.publishedAt);
-            if (dlBtn && release.zipUrl) dlBtn.href = release.zipUrl;
-            if (ghBtn && release.releaseUrl) ghBtn.href = release.releaseUrl;
+            if (verEl) verEl.textContent = release ? release.tag : '—';
+            if (sizeEl) sizeEl.textContent = (release && release.zipSize) ? extFormatBytes(release.zipSize) : '—';
+            if (dateEl) dateEl.textContent = (release && release.publishedAt) ? extFormatDate(release.publishedAt) : '—';
+            if (dlBtn && release && release.zipUrl) dlBtn.href = release.zipUrl;
+            if (ghBtn && release && release.releaseUrl) ghBtn.href = release.releaseUrl;
 
             // Update badge tool card jika ada
             const cardEl = document.querySelector(`.tool-card[data-id="tool-tiktok-patcher"] .tool-ver-badge`);
-            if (cardEl && release.tag) {
+            if (cardEl && release && release.tag) {
                 cardEl.textContent = release.tag;
             }
         });
@@ -1972,7 +2000,7 @@
         id: 'tool-tiktok-patcher',
         _id: 'tool-tiktok-patcher',
         isTool: true,
-        version: '3.9.2',
+        version: '3.9.3',
         title: 'Quality method',
         titleKey: 'tool_patcher_title',
         desc: 'TikTok HQ Upload',
