@@ -1083,10 +1083,15 @@
         style.id = 'tiktok-quality-mode-styles';
         style.textContent = `
             .tiktok-mode-header {
+                position: sticky;
+                top: 0;
+                z-index: 5;
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
-                margin-bottom: 4px;
+                margin: -4px 0 8px;
+                padding: 6px 0;
+                background: var(--md-sys-color-surface-container, #172118);
             }
             .tiktok-mode-tabs {
                 display: flex;
@@ -1498,6 +1503,8 @@
                 if (targetMode === qualityUiMode) return;
                 qualityUiMode = targetMode;
                 initQualityMethodUI();
+                const modalBodyEl = document.querySelector('.tool-modal-body');
+                if (modalBodyEl) modalBodyEl.scrollTop = 0;
             });
         });
 
@@ -1965,7 +1972,7 @@
         id: 'tool-tiktok-patcher',
         _id: 'tool-tiktok-patcher',
         isTool: true,
-        version: '3.9.1',
+        version: '3.9.2',
         title: 'Quality method',
         titleKey: 'tool_patcher_title',
         desc: 'TikTok HQ Upload',
@@ -2055,6 +2062,7 @@
         onProcess: processQualityMethod,
         onReset: function() {
             isProcessing = false;
+            qualityUiMode = 'web';
             currentFileBuffer = null;
             selectedFile = null;
             currentInspectedFile = null;
