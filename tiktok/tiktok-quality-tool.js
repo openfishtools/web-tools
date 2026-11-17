@@ -1143,11 +1143,14 @@
                 background: var(--md-sys-color-surface-container, #172118) !important;
                 border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.1)) !important;
                 border-radius: var(--radius-l, 16px) !important;
-                padding: 18px 20px !important;
+                padding: 10px 20px 16px !important;
                 display: flex !important;
                 flex-direction: column !important;
-                gap: 14px !important;
+                gap: 10px !important;
                 box-sizing: border-box !important;
+            }
+            .ext-modal-container > .ext-card-section:first-child {
+                margin-top: -4px !important;
             }
             .ext-section-header {
                 display: flex !important;
