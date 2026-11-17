@@ -1119,36 +1119,64 @@
                 padding: 6px 0;
                 background: var(--md-sys-color-surface-container, #172118);
             }
-            .tiktok-mode-tabs {
-                display: flex;
-                gap: 8px;
-            }
-            .tiktok-mode-tab {
+            /* Material 3 Switch (Web <-> Extension) */
+            .tiktok-mode-row {
                 display: flex;
                 align-items: center;
-                justify-content: center;
-                gap: 6px;
-                background: var(--md-sys-color-surface-container, #172118);
-                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.7));
-                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.1));
-                border-radius: var(--radius-m, 12px);
-                padding: 9px 18px;
+                gap: 12px;
+            }
+            .tiktok-mode-label {
+                background: transparent;
+                border: none;
+                padding: 4px 2px;
+                font-family: inherit;
                 font-size: 13px;
                 font-weight: 600;
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.7));
                 cursor: pointer;
-                transition: all 0.2s ease;
+                transition: color 0.2s ease;
             }
-            .tiktok-mode-tab .material-symbols-rounded {
-                font-size: 18px;
-            }
-            .tiktok-mode-tab:hover {
-                border-color: rgba(163, 219, 167, 0.35);
+            .tiktok-mode-label:hover {
                 color: var(--md-sys-color-on-surface, #f2f7f2);
             }
-            .tiktok-mode-tab.active {
-                background: rgba(163, 219, 167, 0.14);
-                border-color: rgba(163, 219, 167, 0.45);
+            .tiktok-mode-label.active {
                 color: var(--md-sys-color-primary, #a3dba7);
+            }
+            .tiktok-mode-switch {
+                position: relative;
+                flex: 0 0 auto;
+                width: 52px;
+                height: 32px;
+                border-radius: 999px;
+                background: var(--md-sys-color-surface-container-highest, #232d24);
+                border: 2px solid var(--md-sys-color-outline, rgba(255, 255, 255, 0.4));
+                cursor: pointer;
+                padding: 0;
+                transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            }
+            .tiktok-mode-switch:hover {
+                box-shadow: 0 0 0 6px rgba(163, 219, 167, 0.08);
+            }
+            .tiktok-mode-switch[aria-checked="true"] {
+                background: var(--md-sys-color-primary, #a3dba7);
+                border-color: var(--md-sys-color-primary, #a3dba7);
+            }
+            .tiktok-mode-switch-thumb {
+                position: absolute;
+                top: 50%;
+                left: 6px;
+                width: 16px;
+                height: 16px;
+                border-radius: 999px;
+                background: var(--md-sys-color-outline, rgba(255, 255, 255, 0.7));
+                transform: translateY(-50%);
+                transition: left 0.2s ease, width 0.2s ease, height 0.2s ease, background 0.2s ease;
+            }
+            .tiktok-mode-switch[aria-checked="true"] .tiktok-mode-switch-thumb {
+                left: calc(100% - 28px);
+                width: 24px;
+                height: 24px;
+                background: var(--md-sys-color-on-primary, #0c3912);
             }
 
             .ext-modal-container {
@@ -1513,28 +1541,31 @@
         }
 
         header.innerHTML = `
-            <div class="tiktok-mode-tabs" id="tiktok-mode-tabs" role="tablist">
-                <button type="button" class="tiktok-mode-tab ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web" role="tab" aria-selected="${qualityUiMode === 'web'}">
-                    <span class="material-symbols-rounded">language</span>
-                    <span>Web</span>
+            <div class="tiktok-mode-row">
+                <button type="button" class="tiktok-mode-label ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web">Web</button>
+                <button type="button" class="tiktok-mode-switch" id="tiktok-mode-switch" role="switch" aria-checked="${qualityUiMode === 'extension'}" aria-label="Mode Extension">
+                    <span class="tiktok-mode-switch-thumb"></span>
                 </button>
-                <button type="button" class="tiktok-mode-tab ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension" role="tab" aria-selected="${qualityUiMode === 'extension'}">
-                    <span class="material-symbols-rounded">extension</span>
-                    <span>Extension</span>
-                </button>
+                <button type="button" class="tiktok-mode-label ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension">Extension</button>
             </div>
         `;
 
-        header.querySelectorAll('.tiktok-mode-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                const targetMode = tab.getAttribute('data-mode');
-                if (targetMode === qualityUiMode) return;
-                qualityUiMode = targetMode;
-                initQualityMethodUI();
-                const modalBodyEl = document.querySelector('.tool-modal-body');
-                if (modalBodyEl) modalBodyEl.scrollTop = 0;
-            });
+        const applyMode = (targetMode) => {
+            if (targetMode === qualityUiMode) return;
+            qualityUiMode = targetMode;
+            initQualityMethodUI();
+            const modalBodyEl = document.querySelector('.tool-modal-body');
+            if (modalBodyEl) modalBodyEl.scrollTop = 0;
+        };
+        header.querySelectorAll('.tiktok-mode-label').forEach(label => {
+            label.addEventListener('click', () => applyMode(label.getAttribute('data-mode')));
         });
+        const modeSwitch = header.querySelector('.tiktok-mode-switch');
+        if (modeSwitch) {
+            modeSwitch.addEventListener('click', () => {
+                applyMode(qualityUiMode === 'web' ? 'extension' : 'web');
+            });
+        }
 
         // Fallback host when the modal has no drop zone: prepend the header here.
         if (!dropZone || !dropZone.parentElement) {
