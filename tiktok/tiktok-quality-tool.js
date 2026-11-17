@@ -1178,6 +1178,45 @@
                 height: 100% !important;
                 border: none !important;
             }
+            /* Lite-embed: thumbnail klik-untuk-play (tahan COEP/adblock lebih baik) */
+            .ext-video-litestub {
+                position: absolute !important;
+                inset: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                padding: 0 !important;
+                border: none !important;
+                background: none !important;
+                cursor: pointer !important;
+                display: block !important;
+            }
+            .ext-video-thumb {
+                width: 100% !important;
+                height: 100% !important;
+                object-fit: cover !important;
+                display: block !important;
+            }
+            .ext-video-playbtn {
+                position: absolute !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                width: 60px !important;
+                height: 42px !important;
+                border-radius: 12px !important;
+                background: rgba(0, 0, 0, 0.72) !important;
+                pointer-events: none !important;
+            }
+            .ext-video-playbtn::after {
+                content: '' !important;
+                position: absolute !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-42%, -50%) !important;
+                border-left: 15px solid #ffffff !important;
+                border-top: 9px solid transparent !important;
+                border-bottom: 9px solid transparent !important;
+            }
             .ext-video-placeholder {
                 display: flex !important;
                 flex-direction: column !important;
@@ -1378,7 +1417,10 @@
 
                     <div class="ext-video-wrap" id="ext-video-container">
                         ${embedUrl ? `
-                            <iframe src="${embedUrl}" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                            <button type="button" class="ext-video-litestub" data-embed-src="${embedUrl}" title="Play video tutorial">
+                                <img class="ext-video-thumb" src="https://i.ytimg.com/vi/${extYoutubeTutorialUrl.match(/([\w-]{11})/)[1]}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">
+                                <span class="ext-video-playbtn"></span>
+                            </button>
                         ` : `
                             <div class="ext-video-placeholder">
                                 <span class="material-symbols-rounded">play_circle</span>
@@ -1470,6 +1512,23 @@
                 cardEl.textContent = release.tag;
             }
         });
+
+        // Lite-embed: klik thumbnail -> iframe YouTube (fresh load via user gesture,
+        // tahan terhadap COEP/embed-refused dan tidak autoplay saat load modal).
+        const stub = container.querySelector('.ext-video-litestub');
+        if (stub) {
+            stub.addEventListener('click', () => {
+                const src = stub.dataset.embedSrc;
+                if (!src) return;
+                const iframe = document.createElement('iframe');
+                iframe.src = src + (src.includes('?') ? '&' : '?') + 'autoplay=1';
+                iframe.title = 'YouTube video player';
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                iframe.allowFullscreen = true;
+                container.querySelector('#ext-video-container').innerHTML = '';
+                container.querySelector('#ext-video-container').appendChild(iframe);
+            });
+        }
     }
 
     function initQualityMethodUI() {
