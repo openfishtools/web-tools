@@ -928,10 +928,577 @@
         descEl.innerHTML = baseDesc;
     }
 
+    // ===== Mode switch (Web / Extension) =====
+    let qualityUiMode = 'web';
+    let extYoutubeTutorialUrl = '';
+
+    const FP_EXT_REPO_OWNER = 'cutefishaep';
+    const FP_EXT_REPO_NAME = 'fp-ext';
+    const FP_EXT_GITHUB_API_LATEST = `https://api.github.com/repos/${FP_EXT_REPO_OWNER}/${FP_EXT_REPO_NAME}/releases/latest`;
+    const FP_EXT_GITHUB_RELEASES_PAGE = `https://github.com/${FP_EXT_REPO_OWNER}/${FP_EXT_REPO_NAME}/releases`;
+    const FP_EXT_FALLBACK_VERSION = 'v0.3.3';
+    const FP_EXT_FALLBACK_ZIP_URL = `https://github.com/${FP_EXT_REPO_OWNER}/${FP_EXT_REPO_NAME}/releases/download/${FP_EXT_FALLBACK_VERSION}/fish-acceleration.zip`;
+    const FP_EXT_CACHE_KEY = 'fp_ext_latest_release_cache';
+
+    const EXT_I18N = {
+        id: {
+            tutorialTitle: 'Tutorial Video',
+            videoPending: 'Tutorial Video',
+            videoPendingDesc: 'Video tutorial akan segera tersedia di sini.',
+            quettaTitle: 'Quetta Browser',
+            quettaTag: 'Android / Mobile',
+            quettaDesc: 'Khusus pengguna HP / Android untuk memasang ekstensi di ponsel.',
+            quettaBtn: 'Download Quetta',
+            extTitle: 'Download Ekstensi',
+            chipVer: 'Versi',
+            chipSize: 'Ukuran',
+            chipDate: 'Diperbarui',
+            chipStatus: 'Status',
+            statusSafe: 'Latest Stable',
+            btnDownload: 'Download',
+            btnGithub: 'GitHub'
+        },
+        en: {
+            tutorialTitle: 'Video Tutorial',
+            videoPending: 'Video Tutorial',
+            videoPendingDesc: 'Video tutorial will be available here soon.',
+            quettaTitle: 'Quetta Browser',
+            quettaTag: 'Android / Mobile',
+            quettaDesc: 'For mobile / Android users to install extensions on smartphones.',
+            quettaBtn: 'Download Quetta',
+            extTitle: 'Download Extension',
+            chipVer: 'Version',
+            chipSize: 'Size',
+            chipDate: 'Updated',
+            chipStatus: 'Status',
+            statusSafe: 'Latest Stable',
+            btnDownload: 'Download',
+            btnGithub: 'GitHub'
+        }
+    };
+
+    function extLang() {
+        if (window.getCurrentLanguage && typeof window.getCurrentLanguage === 'function') {
+            const lang = window.getCurrentLanguage();
+            if (lang === 'id' || lang === 'en') return lang;
+        }
+        return (navigator.language && navigator.language.startsWith('id')) ? 'id' : 'en';
+    }
+
+    function extText(key) {
+        const lang = extLang();
+        return (EXT_I18N[lang] && EXT_I18N[lang][key]) || EXT_I18N.en[key] || key;
+    }
+
+    function extractYouTubeEmbedUrl(url) {
+        if (!url || typeof url !== 'string') return null;
+        const trimmed = url.trim();
+        if (!trimmed) return null;
+
+        const m = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/i);
+        if (m && m[1]) {
+            return `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0`;
+        }
+        return null;
+    }
+
+    async function fetchExtLatestRelease() {
+        try {
+            const cached = sessionStorage.getItem(FP_EXT_CACHE_KEY);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Date.now() - parsed.timestamp < 10 * 60 * 1000 && parsed.data) {
+                    return parsed.data;
+                }
+            }
+        } catch (_) {}
+
+        try {
+            const res = await fetch(FP_EXT_GITHUB_API_LATEST, {
+                headers: { 'Accept': 'application/vnd.github.v3+json' }
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            let zipAsset = null;
+            if (Array.isArray(data.assets)) {
+                zipAsset = data.assets.find(a => (a.name || '').endsWith('.zip')) || data.assets[0];
+            }
+
+            const result = {
+                tag: data.tag_name || FP_EXT_FALLBACK_VERSION,
+                name: data.name || `Fish Acceleration ${data.tag_name || FP_EXT_FALLBACK_VERSION}`,
+                publishedAt: data.published_at || null,
+                zipUrl: zipAsset?.browser_download_url || FP_EXT_FALLBACK_ZIP_URL,
+                zipSize: zipAsset?.size || 84729,
+                releaseUrl: data.html_url || FP_EXT_GITHUB_RELEASES_PAGE
+            };
+
+            try {
+                sessionStorage.setItem(FP_EXT_CACHE_KEY, JSON.stringify({
+                    timestamp: Date.now(),
+                    data: result
+                }));
+            } catch (_) {}
+
+            return result;
+        } catch (err) {
+            console.warn('[QualityMethod] Failed to fetch latest extension release, using fallback:', err.message);
+            return {
+                tag: FP_EXT_FALLBACK_VERSION,
+                name: `Fish Acceleration ${FP_EXT_FALLBACK_VERSION}`,
+                publishedAt: null,
+                zipUrl: FP_EXT_FALLBACK_ZIP_URL,
+                zipSize: 84729,
+                releaseUrl: FP_EXT_GITHUB_RELEASES_PAGE
+            };
+        }
+    }
+
+    function extFormatBytes(bytes) {
+        if (!bytes || isNaN(bytes)) return '~78 KB';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function extFormatDate(isoStr) {
+        if (!isoStr) return '—';
+        try {
+            const d = new Date(isoStr);
+            const lang = extLang();
+            return d.toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch {
+            return '—';
+        }
+    }
+
+    function injectQualityModeStyles() {
+        if (document.getElementById('tiktok-quality-mode-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'tiktok-quality-mode-styles';
+        style.textContent = `
+            .tiktok-mode-header {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-bottom: 4px;
+            }
+            .tiktok-mode-tabs {
+                display: flex;
+                gap: 8px;
+            }
+            .tiktok-mode-tab {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                background: var(--md-sys-color-surface-container, #172118);
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.7));
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.1));
+                border-radius: var(--radius-m, 12px);
+                padding: 9px 18px;
+                font-size: 13px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            .tiktok-mode-tab .material-symbols-rounded {
+                font-size: 18px;
+            }
+            .tiktok-mode-tab:hover {
+                border-color: rgba(163, 219, 167, 0.35);
+                color: var(--md-sys-color-on-surface, #f2f7f2);
+            }
+            .tiktok-mode-tab.active {
+                background: rgba(163, 219, 167, 0.14);
+                border-color: rgba(163, 219, 167, 0.45);
+                color: var(--md-sys-color-primary, #a3dba7);
+            }
+
+            .ext-modal-container {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 14px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            .ext-card-section {
+                background: var(--md-sys-color-surface-container, #172118) !important;
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.1)) !important;
+                border-radius: var(--radius-l, 16px) !important;
+                padding: 18px 20px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 14px !important;
+                box-sizing: border-box !important;
+            }
+            .ext-section-header {
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                font-size: 14.5px !important;
+                font-weight: 600 !important;
+                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+            }
+            .ext-section-header .material-symbols-rounded {
+                font-size: 20px !important;
+                color: var(--md-sys-color-primary, #a3dba7) !important;
+            }
+            .ext-video-wrap {
+                width: 100% !important;
+                aspect-ratio: 16 / 9 !important;
+                border-radius: var(--radius-m, 12px) !important;
+                overflow: hidden !important;
+                background: var(--md-sys-color-surface-container-highest, #232d24) !important;
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.08)) !important;
+                position: relative !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            .ext-video-wrap iframe {
+                width: 100% !important;
+                height: 100% !important;
+                border: none !important;
+            }
+            .ext-video-placeholder {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 10px !important;
+                padding: 24px !important;
+                text-align: center !important;
+            }
+            .ext-video-placeholder .material-symbols-rounded {
+                font-size: 48px !important;
+                color: var(--md-sys-color-primary, #a3dba7) !important;
+                opacity: 0.85 !important;
+            }
+            .ext-video-placeholder-title {
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+            }
+            .ext-video-placeholder-desc {
+                font-size: 12px !important;
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.65)) !important;
+                max-width: 380px !important;
+                line-height: 1.45 !important;
+            }
+
+            /* Quetta Browser Card */
+            .ext-quetta-card {
+                background: linear-gradient(135deg, rgba(30, 41, 31, 0.95), rgba(23, 33, 24, 0.95)) !important;
+                border: 1px solid rgba(163, 219, 167, 0.22) !important;
+                gap: 10px !important;
+            }
+            .ext-quetta-header-row {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 10px !important;
+            }
+            .ext-quetta-tag {
+                background: rgba(163, 219, 167, 0.12) !important;
+                color: #a3dba7 !important;
+                border: 1px solid rgba(163, 219, 167, 0.25) !important;
+                border-radius: 6px !important;
+                padding: 2px 8px !important;
+                font-size: 11px !important;
+                font-weight: 600 !important;
+            }
+            .ext-quetta-desc {
+                font-size: 12.5px !important;
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.75)) !important;
+                margin: 0 !important;
+                line-height: 1.45 !important;
+            }
+            .ext-btn-quetta {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                background: var(--md-sys-color-surface-container-high, #1e291f) !important;
+                color: var(--md-sys-color-primary, #a3dba7) !important;
+                border: 1px solid rgba(163, 219, 167, 0.35) !important;
+                border-radius: var(--radius-m, 12px) !important;
+                padding: 11px 18px !important;
+                font-size: 13.5px !important;
+                font-weight: 600 !important;
+                text-decoration: none !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                transition: all 0.2s ease !important;
+            }
+            .ext-btn-quetta:hover {
+                background: rgba(163, 219, 167, 0.15) !important;
+                border-color: #a3dba7 !important;
+                transform: translateY(-1px) !important;
+            }
+
+            /* Release 2x2 Grid */
+            .ext-release-info-grid {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px !important;
+            }
+            .ext-release-chip {
+                background: var(--md-sys-color-surface-container-high, #1e291f) !important;
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.08)) !important;
+                border-radius: var(--radius-m, 12px) !important;
+                padding: 10px 14px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 3px !important;
+            }
+            .ext-chip-label {
+                font-size: 10.5px !important;
+                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.55)) !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.4px !important;
+                font-weight: 600 !important;
+            }
+            .ext-chip-val {
+                font-size: 13.5px !important;
+                font-weight: 700 !important;
+                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+            }
+            .ext-chip-val.badge-safe {
+                color: var(--md-sys-color-primary, #a3dba7) !important;
+            }
+
+            /* Actions Row - Balanced 2 Columns */
+            .ext-download-actions {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                gap: 10px !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                margin-top: 4px !important;
+            }
+            .ext-btn-download {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                background: var(--md-sys-color-primary, #a3dba7) !important;
+                color: var(--md-sys-color-on-primary, #0c3912) !important;
+                border: none !important;
+                border-radius: var(--radius-m, 12px) !important;
+                padding: 12px 16px !important;
+                font-size: 13.5px !important;
+                font-weight: 600 !important;
+                cursor: pointer !important;
+                text-decoration: none !important;
+                box-sizing: border-box !important;
+                width: 100% !important;
+                text-align: center !important;
+                transition: opacity 0.2s ease, transform 0.15s ease !important;
+            }
+            .ext-btn-download:hover {
+                opacity: 0.92 !important;
+                transform: translateY(-1px) !important;
+            }
+            .ext-btn-secondary {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                background: var(--md-sys-color-surface-container-high, #1e291f) !important;
+                color: var(--md-sys-color-on-surface, #f2f7f2) !important;
+                border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.12)) !important;
+                border-radius: var(--radius-m, 12px) !important;
+                padding: 12px 16px !important;
+                font-size: 13.5px !important;
+                font-weight: 500 !important;
+                cursor: pointer !important;
+                text-decoration: none !important;
+                box-sizing: border-box !important;
+                width: 100% !important;
+                text-align: center !important;
+                transition: background 0.2s ease !important;
+            }
+            .ext-btn-secondary:hover {
+                background: var(--md-sys-color-surface-container-highest, #232d24) !important;
+            }
+
+            @media (max-width: 480px) {
+                .ext-download-actions {
+                    grid-template-columns: 1fr !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function setQualityChromeVisible(visible) {
+        const dropZone = document.getElementById('tool-drop-zone');
+        const processBtn = document.getElementById('tool-process-btn');
+        const progressSec = document.getElementById('tool-progress-section');
+        const fileBadge = document.getElementById('tool-file-badge');
+        if (dropZone) dropZone.classList.toggle('hidden', !visible);
+        if (processBtn && processBtn.parentElement) processBtn.parentElement.classList.toggle('hidden', !visible);
+        if (progressSec) progressSec.classList.toggle('hidden', !visible);
+        if (fileBadge) fileBadge.classList.toggle('hidden', !visible);
+    }
+
+    function renderExtensionModeUI(container) {
+        const embedUrl = extractYouTubeEmbedUrl(extYoutubeTutorialUrl);
+
+        container.innerHTML = `
+            <div class="ext-modal-container">
+                <!-- 1. Kolom Tutorial di Atas -->
+                <div class="ext-card-section">
+                    <div class="ext-section-header">
+                        <span class="material-symbols-rounded">smart_display</span>
+                        <span>${extText('tutorialTitle')}</span>
+                    </div>
+
+                    <div class="ext-video-wrap" id="ext-video-container">
+                        ${embedUrl ? `
+                            <iframe src="${embedUrl}" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                        ` : `
+                            <div class="ext-video-placeholder">
+                                <span class="material-symbols-rounded">play_circle</span>
+                                <div class="ext-video-placeholder-title">${extText('videoPending')}</div>
+                                <div class="ext-video-placeholder-desc">${extText('videoPendingDesc')}</div>
+                            </div>
+                        `}
+                    </div>
+                </div>
+
+                <!-- 2. Quetta Browser (Di Atas Ekstensi) -->
+                <div class="ext-card-section ext-quetta-card">
+                    <div class="ext-quetta-header-row">
+                        <div class="ext-section-header">
+                            <span class="material-symbols-rounded">phone_android</span>
+                            <span>${extText('quettaTitle')}</span>
+                        </div>
+                        <span class="ext-quetta-tag">${extText('quettaTag')}</span>
+                    </div>
+                    <p class="ext-quetta-desc">${extText('quettaDesc')}</p>
+                    <a href="https://www.quetta.net/" target="_blank" rel="noopener noreferrer" class="ext-btn-quetta">
+                        <span class="material-symbols-rounded">download</span>
+                        <span>${extText('quettaBtn')}</span>
+                        <span class="material-symbols-rounded" style="font-size: 16px; margin-left: 2px;">arrow_outward</span>
+                    </a>
+                </div>
+
+                <!-- 3. Block Download Extension di Bawah -->
+                <div class="ext-card-section ext-download-box">
+                    <div class="ext-section-header">
+                        <span class="material-symbols-rounded">download</span>
+                        <span>${extText('extTitle')}</span>
+                    </div>
+
+                    <div class="ext-release-info-grid">
+                        <div class="ext-release-chip">
+                            <span class="ext-chip-label">${extText('chipVer')}</span>
+                            <span class="ext-chip-val badge-safe" id="ext-ver-text">${FP_EXT_FALLBACK_VERSION}</span>
+                        </div>
+                        <div class="ext-release-chip">
+                            <span class="ext-chip-label">${extText('chipSize')}</span>
+                            <span class="ext-chip-val" id="ext-size-text">~83 KB</span>
+                        </div>
+                        <div class="ext-release-chip">
+                            <span class="ext-chip-label">${extText('chipDate')}</span>
+                            <span class="ext-chip-val" id="ext-date-text">...</span>
+                        </div>
+                        <div class="ext-release-chip">
+                            <span class="ext-chip-label">${extText('chipStatus')}</span>
+                            <span class="ext-chip-val badge-safe">${extText('statusSafe')}</span>
+                        </div>
+                    </div>
+
+                    <div class="ext-download-actions">
+                        <a href="${FP_EXT_FALLBACK_ZIP_URL}" id="ext-download-btn" class="ext-btn-download" download>
+                            <span class="material-symbols-rounded">download</span>
+                            <span>${extText('btnDownload')}</span>
+                        </a>
+                        <a href="${FP_EXT_GITHUB_RELEASES_PAGE}" id="ext-github-btn" class="ext-btn-secondary" target="_blank" rel="noopener noreferrer">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                            </svg>
+                            <span>${extText('btnGithub')}</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Fetch release terbaru secara asinkron dan update UI
+        fetchExtLatestRelease().then(release => {
+            const verEl = container.querySelector('#ext-ver-text');
+            const sizeEl = container.querySelector('#ext-size-text');
+            const dateEl = container.querySelector('#ext-date-text');
+            const dlBtn = container.querySelector('#ext-download-btn');
+            const ghBtn = container.querySelector('#ext-github-btn');
+
+            if (verEl) verEl.textContent = release.tag;
+            if (sizeEl) sizeEl.textContent = extFormatBytes(release.zipSize);
+            if (dateEl) dateEl.textContent = extFormatDate(release.publishedAt);
+            if (dlBtn && release.zipUrl) dlBtn.href = release.zipUrl;
+            if (ghBtn && release.releaseUrl) ghBtn.href = release.releaseUrl;
+
+            // Update badge tool card jika ada
+            const cardEl = document.querySelector(`.tool-card[data-id="tool-tiktok-patcher"] .tool-ver-badge`);
+            if (cardEl && release.tag) {
+                cardEl.textContent = release.tag;
+            }
+        });
+    }
+
     function initQualityMethodUI() {
         const optContainer = document.getElementById('tool-dynamic-options');
         if (!optContainer) return;
+        injectQualityModeStyles();
 
+        optContainer.innerHTML = `
+            <div class="tiktok-mode-header">
+                <div class="tiktok-mode-tabs" id="tiktok-mode-tabs" role="tablist">
+                    <button type="button" class="tiktok-mode-tab ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web" role="tab" aria-selected="${qualityUiMode === 'web'}">
+                        <span class="material-symbols-rounded">language</span>
+                        <span>Web</span>
+                    </button>
+                    <button type="button" class="tiktok-mode-tab ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension" role="tab" aria-selected="${qualityUiMode === 'extension'}">
+                        <span class="material-symbols-rounded">extension</span>
+                        <span>Extension</span>
+                    </button>
+                </div>
+            </div>
+            <div id="tiktok-mode-body"></div>
+        `;
+
+        const modeTabs = optContainer.querySelectorAll('.tiktok-mode-tab');
+        modeTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetMode = tab.getAttribute('data-mode');
+                if (targetMode === qualityUiMode) return;
+                qualityUiMode = targetMode;
+                initQualityMethodUI();
+            });
+        });
+
+        const modeBody = document.getElementById('tiktok-mode-body');
+        if (!modeBody) return;
+
+        if (qualityUiMode === 'extension') {
+            setQualityChromeVisible(false);
+            renderExtensionModeUI(modeBody);
+            return;
+        }
+
+        setQualityChromeVisible(true);
+        initWebModeUI(modeBody);
+    }
+
+    function initWebModeUI(container) {
         const categories = getDynamicCategories();
         const availableCats = Object.values(categories).filter(c => c.methods.length > 0);
         const fallbackCatKey = availableCats.length > 0 ? availableCats[0].id : 'recommended';
@@ -955,7 +1522,7 @@
         const cIdx = compressList.indexOf(compressMode);
         const selectedCIdx = cIdx >= 0 ? cIdx : 0;
 
-        optContainer.innerHTML = `
+        container.innerHTML = `
             <div class="tiktok-category-header">
                 <div class="tiktok-switcher-label">${t('patcher_ver_title')}</div>
                 <div class="tiktok-category-tabs" role="tablist">
@@ -1059,7 +1626,7 @@
             updateDesc();
         }
 
-        const catTabs = optContainer.querySelectorAll('.tiktok-category-tab');
+        const catTabs = container.querySelectorAll('.tiktok-category-tab');
         catTabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 const targetCat = tab.getAttribute('data-category');
@@ -1370,8 +1937,7 @@
         id: 'tool-tiktok-patcher',
         _id: 'tool-tiktok-patcher',
         isTool: true,
-        hidden: true,
-        version: '3.8.0',
+        version: '3.9.0',
         title: 'Quality method',
         titleKey: 'tool_patcher_title',
         desc: 'TikTok HQ Upload',
@@ -1478,6 +2044,18 @@
             if (logs) logs.textContent = '';
         },
         clearCache: clearAllToolCache
+    };
+
+    // Public setter agar link YouTube bisa di-inject atau diatur kapan saja
+    window.setExtensionTutorialUrl = function(url) {
+        extYoutubeTutorialUrl = url || '';
+        const container = document.getElementById('ext-video-container');
+        if (container) {
+            const embed = extractYouTubeEmbedUrl(extYoutubeTutorialUrl);
+            if (embed) {
+                container.innerHTML = `<iframe src="${embed}" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            }
+        }
     };
 
     if (window.AppTools && typeof window.AppTools.register === 'function') {
