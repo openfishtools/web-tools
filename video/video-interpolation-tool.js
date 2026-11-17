@@ -194,7 +194,7 @@
             }
             onLog('[RIFE] Loading RIFE model...');
             const localModelUrl = 'ai/models/rife47_ensemble_True_scale_1_sim.onnx';
-            const cdnBase = window.TOOLS_CDN_BASE || 'https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/';
+            const cdnBase = window.TOOLS_CDN_BASE || 'https://raw.githubusercontent.com/openfishtools/web-tools/main/';
             const hfBase = window.HF_RESOURCE_BASE || 'https://huggingface.co/cutefishae/resource-cutefish/resolve/main';
             const remoteUrls = [
                 `${hfBase}/models/rife47_ensemble_True_scale_1_sim.onnx`,

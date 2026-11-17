@@ -612,7 +612,7 @@
         let session = null;
         let activeEP = 'wasm';
         const hfBase = window.HF_RESOURCE_BASE || 'https://huggingface.co/cutefishae/resource-cutefish/resolve/main';
-        const cdnBase = window.TOOLS_CDN_BASE || 'https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/';
+        const cdnBase = window.TOOLS_CDN_BASE || 'https://raw.githubusercontent.com/openfishtools/web-tools/main/';
         const modelFileName = meta.file.split('/').pop();
         const urlsToTry = [
             cdnBase + 'ai/models/' + modelFileName,

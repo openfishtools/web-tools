@@ -262,7 +262,7 @@ self.addEventListener("message", async (e) => {
       const tileSz = data?.tile_size || 128;
       const urlsToTry = isSpan
         ? [
-            `https://cdn.jsdelivr.net/gh/openfishtools/web-tools@main/ai/models/span4x_${tileSz}/model.json`,
+            `https://raw.githubusercontent.com/openfishtools/web-tools/main/ai/models/span4x_${tileSz}/model.json`,
             `https://raw.githubusercontent.com/openfishtools/web-tools/main/ai/models/span4x_${tileSz}/model.json`,
             absolute_model_url
           ]
