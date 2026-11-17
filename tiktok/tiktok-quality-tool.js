@@ -930,7 +930,9 @@
 
     // ===== Mode switch (Web / Extension) =====
     let qualityUiMode = 'web';
-    let extYoutubeTutorialUrl = '';
+    // Video tutorial YouTube Shorts (Fish Acceleration). Bisa di-override runtime
+    // via window.setExtensionTutorialUrl(url).
+    let extYoutubeTutorialUrl = 'https://youtube.com/shorts/xftaz12NQMo';
 
     const FP_EXT_REPO_OWNER = 'cutefishaep';
     const FP_EXT_REPO_NAME = 'fp-ext';
@@ -1114,69 +1116,20 @@
                 z-index: 5;
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
-                margin: -4px 0 8px;
-                padding: 6px 0;
+                gap: 6px;
+                margin: -12px 0 4px;
+                padding: 4px 0 6px;
                 background: var(--md-sys-color-surface-container, #172118);
             }
-            /* Material 3 Switch (Web <-> Extension) */
+            /* Mode selector (Web <-> Extension) - segmented sliding switch, centered */
             .tiktok-mode-row {
                 display: flex;
-                align-items: center;
-                gap: 12px;
+                justify-content: center;
             }
-            .tiktok-mode-label {
-                background: transparent;
-                border: none;
-                padding: 4px 2px;
-                font-family: inherit;
-                font-size: 13px;
-                font-weight: 600;
-                color: var(--md-sys-color-on-surface-variant, rgba(242, 247, 242, 0.7));
-                cursor: pointer;
-                transition: color 0.2s ease;
-            }
-            .tiktok-mode-label:hover {
-                color: var(--md-sys-color-on-surface, #f2f7f2);
-            }
-            .tiktok-mode-label.active {
-                color: var(--md-sys-color-primary, #a3dba7);
-            }
-            .tiktok-mode-switch {
-                position: relative;
-                flex: 0 0 auto;
-                width: 52px;
-                height: 32px;
-                border-radius: 999px;
-                background: var(--md-sys-color-surface-container-highest, #232d24);
-                border: 2px solid var(--md-sys-color-outline, rgba(255, 255, 255, 0.4));
-                cursor: pointer;
-                padding: 0;
-                transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-            }
-            .tiktok-mode-switch:hover {
-                box-shadow: 0 0 0 6px rgba(163, 219, 167, 0.08);
-            }
-            .tiktok-mode-switch[aria-checked="true"] {
-                background: var(--md-sys-color-primary, #a3dba7);
-                border-color: var(--md-sys-color-primary, #a3dba7);
-            }
-            .tiktok-mode-switch-thumb {
-                position: absolute;
-                top: 50%;
-                left: 6px;
-                width: 16px;
-                height: 16px;
-                border-radius: 999px;
-                background: var(--md-sys-color-outline, rgba(255, 255, 255, 0.7));
-                transform: translateY(-50%);
-                transition: left 0.2s ease, width 0.2s ease, height 0.2s ease, background 0.2s ease;
-            }
-            .tiktok-mode-switch[aria-checked="true"] .tiktok-mode-switch-thumb {
-                left: calc(100% - 28px);
-                width: 24px;
-                height: 24px;
-                background: var(--md-sys-color-on-primary, #0c3912);
+            #tiktok-mode-switch {
+                min-width: 260px;
+                width: auto;
+                max-width: 100%;
             }
 
             .ext-modal-container {
@@ -1542,11 +1495,11 @@
 
         header.innerHTML = `
             <div class="tiktok-mode-row">
-                <button type="button" class="tiktok-mode-label ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web">Web</button>
-                <button type="button" class="tiktok-mode-switch" id="tiktok-mode-switch" role="switch" aria-checked="${qualityUiMode === 'extension'}" aria-label="Mode Extension">
-                    <span class="tiktok-mode-switch-thumb"></span>
-                </button>
-                <button type="button" class="tiktok-mode-label ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension">Extension</button>
+                <div class="tiktok-switch-track" id="tiktok-mode-switch" data-selected="${qualityUiMode}" data-count="2" data-selected-idx="${qualityUiMode === 'extension' ? 1 : 0}" style="--total: 2; --idx: ${qualityUiMode === 'extension' ? 1 : 0};" aria-label="Mode Web atau Extension">
+                    <div class="tiktok-switch-indicator"></div>
+                    <div class="tiktok-switch-option ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web">Web</div>
+                    <div class="tiktok-switch-option ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension">Extension</div>
+                </div>
             </div>
         `;
 
@@ -1557,13 +1510,10 @@
             const modalBodyEl = document.querySelector('.tool-modal-body');
             if (modalBodyEl) modalBodyEl.scrollTop = 0;
         };
-        header.querySelectorAll('.tiktok-mode-label').forEach(label => {
-            label.addEventListener('click', () => applyMode(label.getAttribute('data-mode')));
-        });
-        const modeSwitch = header.querySelector('.tiktok-mode-switch');
+        const modeSwitch = header.querySelector('#tiktok-mode-switch');
         if (modeSwitch) {
-            modeSwitch.addEventListener('click', () => {
-                applyMode(qualityUiMode === 'web' ? 'extension' : 'web');
+            modeSwitch.querySelectorAll('.tiktok-switch-option').forEach(opt => {
+                opt.addEventListener('click', () => applyMode(opt.getAttribute('data-mode')));
             });
         }
 
