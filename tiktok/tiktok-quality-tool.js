@@ -1174,9 +1174,17 @@
                 justify-content: center !important;
             }
             .ext-video-wrap iframe {
+                position: absolute !important;
+                inset: 0 !important;
                 width: 100% !important;
                 height: 100% !important;
                 border: none !important;
+            }
+            .ext-video-wrap a.ext-btn-quetta {
+                position: absolute !important;
+                inset: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
             }
             /* Lite-embed: thumbnail klik-untuk-play (tahan COEP/adblock lebih baik) */
             .ext-video-litestub {
@@ -1417,7 +1425,7 @@
 
                     <div class="ext-video-wrap" id="ext-video-container">
                         ${embedUrl ? `
-                            <button type="button" class="ext-video-litestub" data-embed-src="${embedUrl}" title="Play video tutorial">
+                            <button type="button" class="ext-video-litestub" data-embed-src="${embedUrl}" data-watch-url="https://www.youtube.com/watch?v=${extYoutubeTutorialUrl.match(/([\w-]{11})/)[1]}" title="Play video tutorial">
                                 <img class="ext-video-thumb" src="https://i.ytimg.com/vi/${extYoutubeTutorialUrl.match(/([\w-]{11})/)[1]}/hqdefault.jpg" alt="" loading="lazy" referrerpolicy="no-referrer">
                                 <span class="ext-video-playbtn"></span>
                             </button>
@@ -1513,20 +1521,44 @@
             }
         });
 
-        // Lite-embed: klik thumbnail -> iframe YouTube (fresh load via user gesture,
-        // tahan terhadap COEP/embed-refused dan tidak autoplay saat load modal).
+        // Lite-embed: klik thumbnail -> iframe YouTube. Halaman dengan cross-origin
+        // isolation aktif (COEP via coi-serviceworker) memblokir iframe YouTube
+        // ("refused to connect") → fallback: tombol buka YouTube di tab baru.
         const stub = container.querySelector('.ext-video-litestub');
         if (stub) {
             stub.addEventListener('click', () => {
                 const src = stub.dataset.embedSrc;
+                const watchUrl = stub.dataset.watchUrl;
                 if (!src) return;
+
+                if (window.crossOriginIsolated === true) {
+                    // COEP aktif: iframe pasti diblokir — buka langsung di YouTube
+                    const fallback = document.createElement('a');
+                    fallback.className = 'ext-btn-quetta';
+                    fallback.href = watchUrl;
+                    fallback.target = '_blank';
+                    fallback.rel = 'noopener noreferrer';
+                    fallback.innerHTML = `
+                        <span class="material-symbols-rounded">smart_display</span>
+                        <span>Watch the tutorial on YouTube</span>
+                        <span class="material-symbols-rounded" style="font-size: 16px; margin-left: 2px;">arrow_outward</span>
+                    `;
+                    const wrap = container.querySelector('#ext-video-container');
+                    wrap.innerHTML = '';
+                    wrap.appendChild(fallback);
+                    if (watchUrl) window.open(watchUrl, '_blank', 'noopener');
+                    return;
+                }
+
                 const iframe = document.createElement('iframe');
                 iframe.src = src + (src.includes('?') ? '&' : '?') + 'autoplay=1';
                 iframe.title = 'YouTube video player';
-                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+                iframe.referrerPolicy = 'strict-origin-when-cross-origin';
                 iframe.allowFullscreen = true;
-                container.querySelector('#ext-video-container').innerHTML = '';
-                container.querySelector('#ext-video-container').appendChild(iframe);
+                const wrapEl = container.querySelector('#ext-video-container');
+                wrapEl.innerHTML = '';
+                wrapEl.appendChild(iframe);
             });
         }
     }
