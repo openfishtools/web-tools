@@ -1149,8 +1149,8 @@
                 gap: 10px !important;
                 box-sizing: border-box !important;
             }
-            .ext-modal-container > .ext-card-section:first-child {
-                margin-top: -4px !important;
+            .ext-modal-container > .tiktok-mode-row {
+                margin-bottom: -10px !important;
             }
             .ext-section-header {
                 display: flex !important;
@@ -1414,11 +1414,21 @@
         }
     }
 
-    function renderExtensionModeUI(container) {
+    function renderExtensionModeUI(container, applyMode) {
         const embedUrl = extractYouTubeEmbedUrl(extYoutubeTutorialUrl);
+        const vidMatch = extYoutubeTutorialUrl.match(/([\w-]{11})/);
 
         container.innerHTML = `
             <div class="ext-modal-container">
+                <!-- 0. Mode switch di dalam modal -->
+                <div class="tiktok-mode-row">
+                    <div class="tiktok-switch-track" id="tiktok-mode-switch" data-selected="${qualityUiMode}" data-count="2" data-selected-idx="${qualityUiMode === 'extension' ? 1 : 0}" style="--total: 2; --idx: ${qualityUiMode === 'extension' ? 1 : 0};" aria-label="Mode Web atau Extension">
+                        <div class="tiktok-switch-indicator"></div>
+                        <div class="tiktok-switch-option ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web">Web</div>
+                        <div class="tiktok-switch-option ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension">Extension</div>
+                    </div>
+                </div>
+
                 <!-- 1. Kolom Tutorial di Atas -->
                 <div class="ext-card-section">
                     <div class="ext-section-header">
@@ -1564,6 +1574,14 @@
                 wrapEl.appendChild(iframe);
             });
         }
+
+        // Switch mode di dalam modal: ganti mode Web <-> Extension.
+        const innerSwitch = container.querySelector('#tiktok-mode-switch');
+        if (innerSwitch && typeof applyMode === 'function') {
+            innerSwitch.querySelectorAll('.tiktok-switch-option').forEach(opt => {
+                opt.addEventListener('click', () => applyMode(opt.getAttribute('data-mode')));
+            });
+        }
     }
 
     function initQualityMethodUI() {
@@ -1611,6 +1629,14 @@
             });
         }
 
+        // Sembunyikan switch luar saat mode Extension: switch dirender di dalam modal.
+        if (qualityUiMode === 'extension') {
+            header.style.display = 'none';
+            header.innerHTML = '';
+        } else {
+            header.style.display = '';
+        }
+
         // Fallback host when the modal has no drop zone: prepend the header here.
         if (!dropZone || !dropZone.parentElement) {
             optContainer.innerHTML = '';
@@ -1628,7 +1654,7 @@
 
         if (qualityUiMode === 'extension') {
             setQualityChromeVisible(false);
-            renderExtensionModeUI(modeBody);
+            renderExtensionModeUI(modeBody, applyMode);
             return;
         }
 
