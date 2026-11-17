@@ -1135,9 +1135,10 @@
             .ext-modal-container {
                 display: flex !important;
                 flex-direction: column !important;
-                gap: 14px !important;
+                gap: 8px !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
+                margin-top: -8px !important;
             }
             .ext-card-section {
                 background: var(--md-sys-color-surface-container, #172118) !important;
@@ -1150,7 +1151,7 @@
                 box-sizing: border-box !important;
             }
             .ext-modal-container > .tiktok-mode-row {
-                margin-bottom: -10px !important;
+                margin-bottom: 0 !important;
             }
             .ext-section-header {
                 display: flex !important;
