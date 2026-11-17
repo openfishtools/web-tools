@@ -1138,7 +1138,7 @@
                 gap: 8px !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
-                margin-top: -8px !important;
+                margin-top: -4px !important;
             }
             .ext-card-section {
                 background: var(--md-sys-color-surface-container, #172118) !important;
@@ -1150,8 +1150,9 @@
                 gap: 10px !important;
                 box-sizing: border-box !important;
             }
-            .ext-modal-container > .tiktok-mode-row {
-                margin-bottom: 0 !important;
+            /* Switch mode dirender di dalam body modal, di atas konten mode */
+            #tiktok-mode-body > .tiktok-mode-row {
+                margin-bottom: 4px !important;
             }
             .ext-section-header {
                 display: flex !important;
@@ -1421,15 +1422,6 @@
 
         container.innerHTML = `
             <div class="ext-modal-container">
-                <!-- 0. Mode switch di dalam modal -->
-                <div class="tiktok-mode-row">
-                    <div class="tiktok-switch-track" id="tiktok-mode-switch" data-selected="${qualityUiMode}" data-count="2" data-selected-idx="${qualityUiMode === 'extension' ? 1 : 0}" style="--total: 2; --idx: ${qualityUiMode === 'extension' ? 1 : 0};" aria-label="Mode Web atau Extension">
-                        <div class="tiktok-switch-indicator"></div>
-                        <div class="tiktok-switch-option ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web">Web</div>
-                        <div class="tiktok-switch-option ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension">Extension</div>
-                    </div>
-                </div>
-
                 <!-- 1. Kolom Tutorial di Atas -->
                 <div class="ext-card-section">
                     <div class="ext-section-header">
@@ -1575,14 +1567,6 @@
                 wrapEl.appendChild(iframe);
             });
         }
-
-        // Switch mode di dalam modal: ganti mode Web <-> Extension.
-        const innerSwitch = container.querySelector('#tiktok-mode-switch');
-        if (innerSwitch && typeof applyMode === 'function') {
-            innerSwitch.querySelectorAll('.tiktok-switch-option').forEach(opt => {
-                opt.addEventListener('click', () => applyMode(opt.getAttribute('data-mode')));
-            });
-        }
     }
 
     function initQualityMethodUI() {
@@ -1605,16 +1589,9 @@
             header = document.createElement('div');
             header.className = 'tiktok-mode-header';
         }
-
-        header.innerHTML = `
-            <div class="tiktok-mode-row">
-                <div class="tiktok-switch-track" id="tiktok-mode-switch" data-selected="${qualityUiMode}" data-count="2" data-selected-idx="${qualityUiMode === 'extension' ? 1 : 0}" style="--total: 2; --idx: ${qualityUiMode === 'extension' ? 1 : 0};" aria-label="Mode Web atau Extension">
-                    <div class="tiktok-switch-indicator"></div>
-                    <div class="tiktok-switch-option ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web">Web</div>
-                    <div class="tiktok-switch-option ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension">Extension</div>
-                </div>
-            </div>
-        `;
+        // Switch mode dirender di dalam body (per mode UI). Header luar kosong.
+        header.style.display = 'none';
+        header.innerHTML = '';
 
         const applyMode = (targetMode) => {
             if (targetMode === qualityUiMode) return;
@@ -1623,20 +1600,6 @@
             const modalBodyEl = document.querySelector('.tool-modal-body');
             if (modalBodyEl) modalBodyEl.scrollTop = 0;
         };
-        const modeSwitch = header.querySelector('#tiktok-mode-switch');
-        if (modeSwitch) {
-            modeSwitch.querySelectorAll('.tiktok-switch-option').forEach(opt => {
-                opt.addEventListener('click', () => applyMode(opt.getAttribute('data-mode')));
-            });
-        }
-
-        // Sembunyikan switch luar saat mode Extension: switch dirender di dalam modal.
-        if (qualityUiMode === 'extension') {
-            header.style.display = 'none';
-            header.innerHTML = '';
-        } else {
-            header.style.display = '';
-        }
 
         // Fallback host when the modal has no drop zone: prepend the header here.
         if (!dropZone || !dropZone.parentElement) {
@@ -1652,6 +1615,21 @@
         const modeBody = document.createElement('div');
         modeBody.id = 'tiktok-mode-body';
         optContainer.appendChild(modeBody);
+
+        // Baris switch: selalu anak pertama mode body (Web & Extension).
+        const modeRow = document.createElement('div');
+        modeRow.className = 'tiktok-mode-row';
+        modeRow.innerHTML = `
+            <div class="tiktok-switch-track" id="tiktok-mode-switch" data-selected="${qualityUiMode}" data-count="2" data-selected-idx="${qualityUiMode === 'extension' ? 1 : 0}" style="--total: 2; --idx: ${qualityUiMode === 'extension' ? 1 : 0};" aria-label="Mode Web atau Extension">
+                <div class="tiktok-switch-indicator"></div>
+                <div class="tiktok-switch-option ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web">Web</div>
+                <div class="tiktok-switch-option ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension">Extension</div>
+            </div>
+        `;
+        modeRow.querySelectorAll('.tiktok-switch-option').forEach(opt => {
+            opt.addEventListener('click', () => applyMode(opt.getAttribute('data-mode')));
+        });
+        modeBody.appendChild(modeRow);
 
         if (qualityUiMode === 'extension') {
             setQualityChromeVisible(false);
