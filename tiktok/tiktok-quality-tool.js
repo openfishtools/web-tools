@@ -1344,8 +1344,12 @@
         const fileBadge = document.getElementById('tool-file-badge');
         if (dropZone) dropZone.classList.toggle('hidden', !visible);
         if (processBtn && processBtn.parentElement) processBtn.parentElement.classList.toggle('hidden', !visible);
-        if (progressSec) progressSec.classList.toggle('hidden', !visible);
-        if (fileBadge) fileBadge.classList.toggle('hidden', !visible);
+        // Never force-show progress or file badge: hide in Extension mode, leave
+        // natural state (hidden until file selected / processing) in Web mode.
+        if (!visible) {
+            if (progressSec) progressSec.classList.add('hidden');
+            if (fileBadge) fileBadge.classList.add('hidden');
+        }
     }
 
     function renderExtensionModeUI(container) {
@@ -1459,24 +1463,36 @@
         if (!optContainer) return;
         injectQualityModeStyles();
 
-        optContainer.innerHTML = `
-            <div class="tiktok-mode-header">
-                <div class="tiktok-mode-tabs" id="tiktok-mode-tabs" role="tablist">
-                    <button type="button" class="tiktok-mode-tab ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web" role="tab" aria-selected="${qualityUiMode === 'web'}">
-                        <span class="material-symbols-rounded">language</span>
-                        <span>Web</span>
-                    </button>
-                    <button type="button" class="tiktok-mode-tab ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension" role="tab" aria-selected="${qualityUiMode === 'extension'}">
-                        <span class="material-symbols-rounded">extension</span>
-                        <span>Extension</span>
-                    </button>
-                </div>
+        // Mode switch lives ABOVE the drop zone, inserted as its own block.
+        const dropZone = document.getElementById('tool-drop-zone');
+        let header;
+        if (dropZone && dropZone.parentElement) {
+            header = document.getElementById('tiktok-quality-mode-header');
+            if (!header) {
+                header = document.createElement('div');
+                header.id = 'tiktok-quality-mode-header';
+                header.className = 'tiktok-mode-header';
+                dropZone.parentElement.insertBefore(header, dropZone);
+            }
+        } else {
+            header = document.createElement('div');
+            header.className = 'tiktok-mode-header';
+        }
+
+        header.innerHTML = `
+            <div class="tiktok-mode-tabs" id="tiktok-mode-tabs" role="tablist">
+                <button type="button" class="tiktok-mode-tab ${qualityUiMode === 'web' ? 'active' : ''}" data-mode="web" role="tab" aria-selected="${qualityUiMode === 'web'}">
+                    <span class="material-symbols-rounded">language</span>
+                    <span>Web</span>
+                </button>
+                <button type="button" class="tiktok-mode-tab ${qualityUiMode === 'extension' ? 'active' : ''}" data-mode="extension" role="tab" aria-selected="${qualityUiMode === 'extension'}">
+                    <span class="material-symbols-rounded">extension</span>
+                    <span>Extension</span>
+                </button>
             </div>
-            <div id="tiktok-mode-body"></div>
         `;
 
-        const modeTabs = optContainer.querySelectorAll('.tiktok-mode-tab');
-        modeTabs.forEach(tab => {
+        header.querySelectorAll('.tiktok-mode-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const targetMode = tab.getAttribute('data-mode');
                 if (targetMode === qualityUiMode) return;
@@ -1485,8 +1501,20 @@
             });
         });
 
-        const modeBody = document.getElementById('tiktok-mode-body');
-        if (!modeBody) return;
+        // Fallback host when the modal has no drop zone: prepend the header here.
+        if (!dropZone || !dropZone.parentElement) {
+            optContainer.innerHTML = '';
+            optContainer.appendChild(header);
+        }
+
+        // Rebuild body container; keep the fallback header (no drop zone case).
+        optContainer.innerHTML = '';
+        if (!dropZone || !dropZone.parentElement) {
+            optContainer.appendChild(header);
+        }
+        const modeBody = document.createElement('div');
+        modeBody.id = 'tiktok-mode-body';
+        optContainer.appendChild(modeBody);
 
         if (qualityUiMode === 'extension') {
             setQualityChromeVisible(false);
@@ -1937,7 +1965,7 @@
         id: 'tool-tiktok-patcher',
         _id: 'tool-tiktok-patcher',
         isTool: true,
-        version: '3.9.0',
+        version: '3.9.1',
         title: 'Quality method',
         titleKey: 'tool_patcher_title',
         desc: 'TikTok HQ Upload',
